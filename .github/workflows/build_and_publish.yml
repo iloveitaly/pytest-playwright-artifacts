@@ -42,6 +42,7 @@ jobs:
       - run: mise use python@${{ matrix.python-version }}
       - uses: iloveitaly/github-action-direnv-load-and-mask@master
       - run: uv sync
+      - run: uv run playwright install --with-deps chromium
       - run: uv run pytest
 
   release-please:
