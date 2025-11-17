@@ -42,11 +42,8 @@ jobs:
       - run: mise use python@${{ matrix.python-version }}
       - uses: iloveitaly/github-action-direnv-load-and-mask@master
       - run: uv sync
-      - name: Install Playwright Browsers
-        run: uv run playwright install chromium
-      - name: Install Playwright System Dependencies
-        run: uv run playwright install-deps chromium
-        if: runner.os == 'Linux'
+      - name: Install Playwright Browsers and Dependencies
+        run: sudo uv run playwright install --with-deps chromium
       - run: uv run pytest
 
   release-please:

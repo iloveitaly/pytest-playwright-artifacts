@@ -145,37 +145,30 @@ def _should_ignore_console_log(
     return False
 
 
-@pytest.fixture(autouse=True)
-def playwright_console_logging(
-    request: pytest.FixtureRequest, pytestconfig: PlaywrightConfig
-) -> Generator[None, None, None]:
-    """Fixture to capture and log Playwright console messages."""
-    if "page" not in request.fixturenames:
-        yield
-        return
+@pytest.fixture(scope="function")
+def page(page: Page, request: pytest.FixtureRequest) -> Generator[Page, None, None]:
+    """Override pytest-playwright's page fixture to add console logging."""
+    config = cast(PlaywrightConfig, request.config)
 
-    try:
-        page: Page = request.getfixturevalue("page")
-    except pytest.FixtureLookupError:
-        yield
-        return
-
+    # Initialize logs list for this test
     logs: list[StructuredConsoleLog] = []
-    pytestconfig._playwright_console_logs[request.node.nodeid] = logs
+    config._playwright_console_logs[request.node.nodeid] = logs
 
     def log_console(msg: ConsoleMessage) -> None:
         structured_log = extract_structured_log(msg)
-        # filter out ignored messages early so they don't hit stdout or memory
         if _should_ignore_console_log(
-            structured_log, pytestconfig._playwright_console_ignore_patterns
+            structured_log, config._playwright_console_ignore_patterns
         ):
             return
         logs.append(structured_log)
         log_msg = format_console_msg(structured_log)
         logger.debug(log_msg)
 
+    # Attach console listener before test runs
     page.on("console", log_console)
-    yield
+
+    # Yield the page to the test
+    yield page
 
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
