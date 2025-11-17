@@ -43,7 +43,7 @@ jobs:
       - uses: iloveitaly/github-action-direnv-load-and-mask@master
       - run: uv sync
       - name: Install Playwright Browsers and Dependencies
-        run: sudo $(which uv) run playwright install --with-deps --only-shell
+        run: sudo -E env PATH="$PATH" uv run playwright install --with-deps --only-shell
       - run: uv run pytest
 
   release-please:
