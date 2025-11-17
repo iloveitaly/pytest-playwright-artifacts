@@ -45,12 +45,14 @@ from typing import Generator, Protocol, TypedDict, cast
 
 import pytest
 from playwright.sync_api import ConsoleMessage, Page
-
-from app import log
+from structlog_config import configure_logger
 
 # Logger setup for Playwright JavaScript console output
 logger = logging.getLogger("playwright_javascript")
 logger.setLevel(logging.DEBUG)
+
+# Structured logger for plugin operations
+log = configure_logger()
 
 # Regular expression to match and remove ANSI escape sequences (e.g., color codes) from text.
 # This ensures clean, plain-text output for logs and failure summaries.
