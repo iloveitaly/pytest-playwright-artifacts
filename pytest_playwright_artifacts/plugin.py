@@ -45,14 +45,14 @@ from typing import Generator, Protocol, TypedDict, cast
 
 import pytest
 from playwright.sync_api import ConsoleMessage, Page
-from structlog_config import configure_logger
 
 # Logger setup for Playwright JavaScript console output
 logger = logging.getLogger("playwright_javascript")
 logger.setLevel(logging.DEBUG)
 
-# Structured logger for plugin operations
-log = configure_logger()
+# Logger for plugin operations
+log = logging.getLogger("pytest_playwright_artifacts")
+log.setLevel(logging.INFO)
 
 # Regular expression to match and remove ANSI escape sequences (e.g., color codes) from text.
 # This ensures clean, plain-text output for logs and failure summaries.
@@ -298,7 +298,7 @@ $longrepr_text"""
     content = strip_ansi(content)
     failure_text_file = per_test_dir / "failure.txt"
     failure_text_file.write_text(content)
-    log.info("Wrote test failure summary", file_path=failure_text_file)
+    log.info("Wrote test failure summary: %s", failure_text_file)
 
 
 def write_console_logs(
@@ -310,7 +310,7 @@ def write_console_logs(
         logs_content = "\n".join(format_console_msg(log) for log in logs)
         logs_file = per_test_dir / "console_logs.log"
         logs_file.write_text(logs_content)
-        log.info("Wrote console logs", file_path=logs_file)
+        log.info("Wrote console logs: %s", logs_file)
         del config._playwright_console_logs[nodeid]
 
 
@@ -335,11 +335,11 @@ def pytest_runtest_makereport(
 
             failure_file = per_test_dir / "failure.html"
             failure_file.write_text(page.content())
-            log.info("Wrote rendered playwright page HTML", file_path=failure_file)
+            log.info("Wrote rendered playwright page HTML: %s", failure_file)
 
             screenshot_file = per_test_dir / "screenshot.png"
             page.screenshot(path=str(screenshot_file), full_page=True)
-            log.info("wrote playwright screenshot", file_path=screenshot_file)
+            log.info("Wrote playwright screenshot: %s", screenshot_file)
 
             failure_info = extract_failure_info(rep, call, item)
             write_failure_summary(per_test_dir, item, rep, failure_info)

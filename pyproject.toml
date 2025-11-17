@@ -8,7 +8,6 @@ requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.56.0",
     "pytest>=9.0.1",
-    "structlog-config==0.6.0",
 ]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/pytest-playwright-artifacts" }
