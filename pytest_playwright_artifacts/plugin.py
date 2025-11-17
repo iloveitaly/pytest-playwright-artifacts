@@ -145,18 +145,29 @@ def _should_ignore_console_log(
     return False
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_runtest_setup(item: pytest.Item) -> None:
-    """Hook to attach console logging after page fixture is set up but before test runs."""
-    fixturenames = cast(list[str], getattr(item, "fixturenames", []))
+@pytest.fixture(autouse=True)
+def _playwright_console_logging_fixture(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """Autouse fixture to capture and log Playwright console messages."""
+    # Check if this test uses the page fixture
+    fixturenames = cast(list[str], getattr(request, "fixturenames", []))
     if "page" not in fixturenames:
+        yield
         return
 
-    config = cast(PlaywrightConfig, item.config)
+    # Get the page fixture - this will trigger its creation
+    try:
+        page: Page = request.getfixturevalue("page")
+    except (pytest.FixtureLookupError, AttributeError):
+        yield
+        return
+
+    config = cast(PlaywrightConfig, request.config)
 
     # Initialize logs list for this test
     logs: list[StructuredConsoleLog] = []
-    config._playwright_console_logs[item.nodeid] = logs
+    config._playwright_console_logs[request.node.nodeid] = logs
 
     def log_console(msg: ConsoleMessage) -> None:
         structured_log = extract_structured_log(msg)
@@ -168,11 +179,11 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         log_msg = format_console_msg(structured_log)
         logger.debug(log_msg)
 
-    # Get the page from funcargs (it's already set up at this point)
-    funcargs = cast(dict[str, object], getattr(item, "funcargs", {}))
-    if "page" in funcargs:
-        page = cast(Page, funcargs["page"])
-        page.on("console", log_console)
+    # Attach console listener
+    page.on("console", log_console)
+
+    # Yield to let test run
+    yield
 
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:

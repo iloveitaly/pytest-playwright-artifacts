@@ -7,7 +7,6 @@ from pytest_playwright_artifacts.plugin import (
     pytest_addoption,
     pytest_configure,
     pytest_runtest_makereport,
-    pytest_runtest_setup,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     "pytest_addoption",
     "pytest_configure",
     "pytest_runtest_makereport",
-    "pytest_runtest_setup",
 ]
