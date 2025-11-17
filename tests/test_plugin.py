@@ -1,11 +1,16 @@
 """Tests for pytest-playwright-artifacts plugin."""
 
 import re
+from typing import cast
 
 import pytest
 from playwright.sync_api import Page
 
 from pytest_playwright_artifacts import assert_no_console_errors
+from pytest_playwright_artifacts.plugin import (
+    PlaywrightConfig,
+    StructuredConsoleLog,
+)
 
 
 def test_console_logging_capture(page: Page, request: pytest.FixtureRequest):
@@ -14,7 +19,7 @@ def test_console_logging_capture(page: Page, request: pytest.FixtureRequest):
     page.evaluate("console.log('test message')")
     page.evaluate("console.warn('warning message')")
 
-    config = request.config
+    config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
 
     assert len(logs) >= 2
@@ -47,7 +52,7 @@ def test_console_ignore_patterns(
     page.evaluate("console.log('should be captured')")
     page.evaluate("console.log('Invalid Sentry Dsn: something')")
 
-    config = request.config
+    config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
 
     log_texts = [log["text"] for log in logs]
@@ -88,7 +93,7 @@ def test_format_console_msg():
     """Test console message formatting."""
     from pytest_playwright_artifacts.plugin import format_console_msg
 
-    msg = {
+    msg: StructuredConsoleLog = {
         "type": "log",
         "text": "test message",
         "args": ["arg1", "arg2"],
@@ -105,7 +110,7 @@ def test_format_console_msg():
 
 def test_plugin_without_page_fixture(request: pytest.FixtureRequest):
     """Test that plugin gracefully handles tests without page fixture."""
-    config = request.config
+    config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
 
     assert logs == []
