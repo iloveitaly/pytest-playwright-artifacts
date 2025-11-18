@@ -159,7 +159,9 @@ def _playwright_console_logging_fixture(
     # Get the page fixture - this will trigger its creation
     try:
         page: Page = request.getfixturevalue("page")
-    except (pytest.FixtureLookupError, AttributeError):
+        log.info(f"DEBUG: Got page fixture for {request.node.nodeid}, page id: {id(page)}")
+    except (pytest.FixtureLookupError, AttributeError) as e:
+        log.info(f"DEBUG: Failed to get page fixture: {e}")
         yield
         return
 
@@ -170,6 +172,7 @@ def _playwright_console_logging_fixture(
     config._playwright_console_logs[request.node.nodeid] = logs
 
     def log_console(msg: ConsoleMessage) -> None:
+        log.info(f"DEBUG: Console message received: {msg.text}")
         structured_log = extract_structured_log(msg)
         if _should_ignore_console_log(
             structured_log, config._playwright_console_ignore_patterns
@@ -181,6 +184,7 @@ def _playwright_console_logging_fixture(
 
     # Attach console listener
     page.on("console", log_console)
+    log.info(f"DEBUG: Attached console listener to page {id(page)}")
 
     # Yield to let test run
     yield
