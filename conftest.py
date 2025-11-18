@@ -28,14 +28,18 @@ def page(page: Page, request: pytest.FixtureRequest) -> Generator[Page, None, No
     config._playwright_console_logs[request.node.nodeid] = logs
 
     def log_console(msg) -> None:
-        structured_log = extract_structured_log(msg)
-        if _should_ignore_console_log(
-            structured_log, config._playwright_console_ignore_patterns
-        ):
-            return
-        logs.append(structured_log)
-        log_msg = format_console_msg(structured_log)
-        logger.debug(log_msg)
+        try:
+            structured_log = extract_structured_log(msg)
+            if _should_ignore_console_log(
+                structured_log, config._playwright_console_ignore_patterns
+            ):
+                return
+            logs.append(structured_log)
+            log_msg = format_console_msg(structured_log)
+            logger.debug(log_msg)
+        except Exception as e:
+            # Log any errors to avoid silently breaking the listener
+            logger.error(f"Error in console listener: {e}", exc_info=True)
 
     # Attach console listener
     page.on("console", log_console)
