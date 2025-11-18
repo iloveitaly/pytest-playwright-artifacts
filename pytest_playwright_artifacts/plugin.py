@@ -145,45 +145,16 @@ def _should_ignore_console_log(
     return False
 
 
-@pytest.fixture(autouse=True)
-def _playwright_console_logging_fixture(
-    request: pytest.FixtureRequest,
-) -> Generator[None, None, None]:
-    """Autouse fixture to capture and log Playwright console messages."""
-    # Check if this test uses the page fixture
-    fixturenames = cast(list[str], getattr(request, "fixturenames", []))
-    if "page" not in fixturenames:
-        yield
-        return
-
-    # Get the page fixture - this will trigger its creation
-    try:
-        page: Page = request.getfixturevalue("page")
-    except (pytest.FixtureLookupError, AttributeError):
-        yield
-        return
-
-    config = cast(PlaywrightConfig, request.config)
-
-    # Initialize logs list for this test
-    logs: list[StructuredConsoleLog] = []
-    config._playwright_console_logs[request.node.nodeid] = logs
-
-    def log_console(msg: ConsoleMessage) -> None:
-        structured_log = extract_structured_log(msg)
-        if _should_ignore_console_log(
-            structured_log, config._playwright_console_ignore_patterns
-        ):
-            return
-        logs.append(structured_log)
-        log_msg = format_console_msg(structured_log)
-        logger.debug(log_msg)
-
-    # Attach console listener
-    page.on("console", log_console)
-
-    # Yield to let test run
-    yield
+# NOTE: Autouse fixture disabled - it interferes with conftest.py page wrapper.
+# The conftest.py provides the page fixture wrapper for testing this plugin.
+# End users should wrap the page fixture in their own conftest.py to enable console logging.
+# See conftest.py in this repo for an example implementation.
+#
+# @pytest.fixture(autouse=True)
+# def _playwright_console_logging_fixture(
+#     request: pytest.FixtureRequest,
+# ) -> Generator[None, None, None]:
+#     pass
 
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
