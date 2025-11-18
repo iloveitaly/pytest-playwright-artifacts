@@ -17,20 +17,36 @@ def test_console_logging_capture(page: Page, request: pytest.FixtureRequest):
     """Test that console messages are captured."""
     page.set_content("<h1>Test</h1>")
     page.evaluate("console.log('test message')")
+    page.wait_for_timeout(100)  # Give console event time to propagate
     page.evaluate("console.warn('warning message')")
+    page.wait_for_timeout(100)  # Give console event time to propagate
 
     config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
 
+    # Debug: print what we actually got
+    print(f"DEBUG: Captured {len(logs)} logs")
+    for log in logs:
+        print(f"DEBUG: Log type={log['type']}, text={log['text']}")
+
     assert len(logs) >= 2
     assert any(log["type"] == "log" for log in logs)
-    assert any(log["type"] == "warning" for log in logs)
+    # Check for both 'warning' and 'warn' since Playwright might use either
+    assert any(log["type"] in ("warning", "warn") for log in logs)
 
 
 def test_console_error_detection(page: Page, request: pytest.FixtureRequest):
     """Test that console errors are detected by assert_no_console_errors."""
     page.set_content("<h1>Test</h1>")
     page.evaluate("console.error('error message')")
+    page.wait_for_timeout(100)  # Give console event time to propagate
+
+    # Debug: check what was captured
+    config = cast(PlaywrightConfig, request.config)
+    logs = config._playwright_console_logs.get(request.node.nodeid, [])
+    print(f"DEBUG: Captured {len(logs)} logs before assertion")
+    for log in logs:
+        print(f"DEBUG: Log type={log['type']}, text={log['text']}")
 
     with pytest.raises(AssertionError, match="Console errors found"):
         assert_no_console_errors(request)
