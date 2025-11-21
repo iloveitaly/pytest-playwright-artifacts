@@ -145,16 +145,9 @@ def _should_ignore_console_log(
     return False
 
 
-# NOTE: Autouse fixture disabled - it interferes with conftest.py page wrapper.
-# The conftest.py provides the page fixture wrapper for testing this plugin.
-# End users should wrap the page fixture in their own conftest.py to enable console logging.
-# See conftest.py in this repo for an example implementation.
-#
-# @pytest.fixture(autouse=True)
-# def _playwright_console_logging_fixture(
-#     request: pytest.FixtureRequest,
-# ) -> Generator[None, None, None]:
-#     pass
+# NOTE: The autouse fixture approach was disabled because it doesn't work reliably.
+# See playground.py in the project root for the disabled code and detailed explanation.
+# The working approach is in conftest.py which explicitly wraps the page fixture.
 
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
