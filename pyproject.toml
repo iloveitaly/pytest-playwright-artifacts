@@ -5,7 +5,7 @@ description = ""
 keywords = []
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["structlog-config==0.6.0"]
+dependencies = ["structlog-config==0.7.0"]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/pytest-playwright-artifacts" }
 
