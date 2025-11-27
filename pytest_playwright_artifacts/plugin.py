@@ -46,11 +46,13 @@ from typing import Generator, Protocol, TypedDict, cast
 import pytest
 from playwright.sync_api import ConsoleMessage, Page
 
-from app import log
-
 # Logger setup for Playwright JavaScript console output
 logger = logging.getLogger("playwright_javascript")
 logger.setLevel(logging.DEBUG)
+
+# Logger for plugin operations
+log = logging.getLogger("pytest_playwright_artifacts")
+log.setLevel(logging.INFO)
 
 # Regular expression to match and remove ANSI escape sequences (e.g., color codes) from text.
 # This ensures clean, plain-text output for logs and failure summaries.
@@ -143,37 +145,9 @@ def _should_ignore_console_log(
     return False
 
 
-@pytest.fixture(autouse=True)
-def playwright_console_logging(
-    request: pytest.FixtureRequest, pytestconfig: PlaywrightConfig
-) -> Generator[None, None, None]:
-    """Fixture to capture and log Playwright console messages."""
-    if "page" not in request.fixturenames:
-        yield
-        return
-
-    try:
-        page: Page = request.getfixturevalue("page")
-    except pytest.FixtureLookupError:
-        yield
-        return
-
-    logs: list[StructuredConsoleLog] = []
-    pytestconfig._playwright_console_logs[request.node.nodeid] = logs
-
-    def log_console(msg: ConsoleMessage) -> None:
-        structured_log = extract_structured_log(msg)
-        # filter out ignored messages early so they don't hit stdout or memory
-        if _should_ignore_console_log(
-            structured_log, pytestconfig._playwright_console_ignore_patterns
-        ):
-            return
-        logs.append(structured_log)
-        log_msg = format_console_msg(structured_log)
-        logger.debug(log_msg)
-
-    page.on("console", log_console)
-    yield
+# NOTE: The autouse fixture approach was disabled because it doesn't work reliably.
+# See playground.py in the project root for the disabled code and detailed explanation.
+# The working approach is in conftest.py which explicitly wraps the page fixture.
 
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
@@ -296,7 +270,7 @@ $longrepr_text"""
     content = strip_ansi(content)
     failure_text_file = per_test_dir / "failure.txt"
     failure_text_file.write_text(content)
-    log.info("Wrote test failure summary", file_path=failure_text_file)
+    log.info("Wrote test failure summary: %s", failure_text_file)
 
 
 def write_console_logs(
@@ -308,7 +282,7 @@ def write_console_logs(
         logs_content = "\n".join(format_console_msg(log) for log in logs)
         logs_file = per_test_dir / "console_logs.log"
         logs_file.write_text(logs_content)
-        log.info("Wrote console logs", file_path=logs_file)
+        log.info("Wrote console logs: %s", logs_file)
         del config._playwright_console_logs[nodeid]
 
 
@@ -333,11 +307,11 @@ def pytest_runtest_makereport(
 
             failure_file = per_test_dir / "failure.html"
             failure_file.write_text(page.content())
-            log.info("Wrote rendered playwright page HTML", file_path=failure_file)
+            log.info("Wrote rendered playwright page HTML: %s", failure_file)
 
             screenshot_file = per_test_dir / "screenshot.png"
             page.screenshot(path=str(screenshot_file), full_page=True)
-            log.info("wrote playwright screenshot", file_path=screenshot_file)
+            log.info("Wrote playwright screenshot: %s", screenshot_file)
 
             failure_info = extract_failure_info(rep, call, item)
             write_failure_summary(per_test_dir, item, rep, failure_info)
