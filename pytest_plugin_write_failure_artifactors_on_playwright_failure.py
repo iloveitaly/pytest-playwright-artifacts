@@ -36,6 +36,18 @@ Configuration:
         Invalid Sentry Dsn:.*
         Radar SDK: initialized.*
         \\[Meta Pixel\\].*
+
+Artifacts:
+  On test failure, the following files are written to `<output-dir>/<sanitized-nodeid>/`:
+
+  - `failure.html`: The rendered DOM content of the page at the moment of failure.
+  - `screenshot.png`: A full-page PNG screenshot of the browser viewport.
+  - `failure.txt`: A concise text summary containing test nodeid, phase, error message,
+    location, and full failure traceback.
+  - `console_logs.log`: All captured browser console messages (only written on failure).
+
+  The output directory defaults to `test-results` and can be changed via pytest-playwright's
+  `--output` option.
 """
 
 import logging
@@ -45,8 +57,9 @@ from typing import Generator, Protocol, TypedDict, cast
 
 import pytest
 from playwright.sync_api import ConsoleMessage, Page
+from structlog_config import configure_logger
 
-from app import log
+log = configure_logger()
 
 # Logger setup for Playwright JavaScript console output
 logger = logging.getLogger("playwright_javascript")
@@ -114,12 +127,19 @@ def format_console_msg(msg: StructuredConsoleLog) -> str:
     return f"Type: {msg['type']}, Text: {msg['text']}, Args: {args_str}, Location: {msg['location']}"
 
 
+def _safe_json_value(arg):
+    try:
+        return arg.json_value()
+    except Exception:
+        return f"<unserializable: {type(arg).__name__}>"
+
+
 def extract_structured_log(msg: ConsoleMessage) -> StructuredConsoleLog:
     """Helper to extract console message into a structured dict."""
     return {
         "type": msg.type,
         "text": msg.text,
-        "args": [arg.json_value() for arg in msg.args],
+        "args": [_safe_json_value(arg) for arg in msg.args],
         "location": msg.location,
     }
 
@@ -175,6 +195,9 @@ def playwright_console_logging(
     page.on("console", log_console)
     yield
 
+    if request.node.nodeid in pytestconfig._playwright_console_logs:
+        del pytestconfig._playwright_console_logs[request.node.nodeid]
+
 
 def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
     """Assertion helper to ensure no 'error' type console logs occurred in the current test session.
@@ -200,7 +223,7 @@ def sanitize_for_artifacts(text: str) -> str:
     """Helper to sanitize test nodeid for artifact directory naming."""
     sanitized = re.sub(r"[^A-Za-z0-9]+", "-", text)
     sanitized = re.sub(r"-+", "-", sanitized).strip("-")
-    return sanitized
+    return sanitized or "unknown-test"
 
 
 def get_artifact_dir(item: pytest.Item) -> Path:
@@ -328,7 +351,10 @@ def pytest_runtest_makereport(
     if rep.when == "call" and rep.failed and "page" in fixturenames:
         try:
             funcargs = cast(dict[str, object], getattr(item, "funcargs", {}))
-            page = cast(Page, funcargs["page"])  # type: ignore[index]
+            page = funcargs.get("page")
+            if page is None:
+                return
+            page = cast(Page, page)
             per_test_dir = get_artifact_dir(item)
 
             failure_file = per_test_dir / "failure.html"
@@ -345,5 +371,5 @@ def pytest_runtest_makereport(
             write_console_logs(
                 per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid
             )
-        except Exception:
-            log.exception("Error writing playwright failure artifacts")
+        except (OSError, ValueError, RuntimeError) as e:
+            log.exception("error writing playwright failure artifacts", error=str(e))
