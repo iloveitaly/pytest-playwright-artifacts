@@ -337,6 +337,4 @@ def pytest_runtest_makereport(
     failure_info = extract_failure_info(rep, call, item)
     write_failure_summary(per_test_dir, item, rep, failure_info)
 
-    write_console_logs(
-        per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid
-    )
+    write_console_logs(per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid)
