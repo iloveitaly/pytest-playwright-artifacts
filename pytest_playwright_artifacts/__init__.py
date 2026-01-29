@@ -1,7 +1,3 @@
-from structlog_config import configure_logger
+from pytest_playwright_artifacts.plugin import assert_no_console_errors
 
-logger = configure_logger()
-
-
-def main():
-    logger.info("Hello, Logs!")
+__all__ = ["assert_no_console_errors"]

@@ -61,12 +61,9 @@ from structlog_config import configure_logger
 
 log = configure_logger()
 
-# Logger setup for Playwright JavaScript console output
 logger = logging.getLogger("playwright_javascript")
 logger.setLevel(logging.DEBUG)
 
-# Regular expression to match and remove ANSI escape sequences (e.g., color codes) from text.
-# This ensures clean, plain-text output for logs and failure summaries.
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
@@ -117,7 +114,6 @@ def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
 
 def pytest_configure(config: PlaywrightConfig) -> None:
     config._playwright_console_logs = {}
-    # pre-compile regex filters for fast checks in the hot path
     config._playwright_console_ignore_patterns = _compile_ignore_patterns(config)
 
 
@@ -152,7 +148,6 @@ def _should_ignore_console_log(
 
     formatted = format_console_msg(structured_log)
 
-    # check against both raw text and full formatted message for flexibility
     candidates = [structured_log["text"], formatted]
 
     for candidate in candidates:
@@ -183,7 +178,6 @@ def playwright_console_logging(
 
     def log_console(msg: ConsoleMessage) -> None:
         structured_log = extract_structured_log(msg)
-        # filter out ignored messages early so they don't hit stdout or memory
         if _should_ignore_console_log(
             structured_log, pytestconfig._playwright_console_ignore_patterns
         ):
@@ -245,7 +239,6 @@ def extract_failure_info(
     error_line = None
     longrepr_text = None
 
-    # Extract error details from pytest's test report object
     if hasattr(rep, "longrepr") and rep.longrepr is not None:
         reprcrash = getattr(rep.longrepr, "reprcrash", None)
         if reprcrash is not None:
@@ -254,7 +247,6 @@ def extract_failure_info(
             error_line = getattr(reprcrash, "lineno", None)
         longrepr_text = getattr(rep, "longreprtext", None) or str(rep.longrepr)
 
-    # Fallback: extract error message from call's exception info if not found in report
     if not error_message and hasattr(call, "excinfo") and call.excinfo is not None:
         try:
             error_message = call.excinfo.exconly()
@@ -265,7 +257,6 @@ def extract_failure_info(
                 else None
             )
 
-    # Fallback: use test item location if file/line not found in crash report
     if error_file is None or error_line is None:
         try:
             location_filename, location_lineno, _ = item.location
