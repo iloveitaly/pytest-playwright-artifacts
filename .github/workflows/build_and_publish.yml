@@ -16,6 +16,7 @@ env:
 
   # required otherwise github api calls are rate limited
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  MISE_ENV: ci
 
 jobs:
   lint:
@@ -23,8 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-        env:
-          MISE_ENV: ci
       - uses: iloveitaly/github-action-direnv-load-and-mask@master
       - run: uv sync
       - run: just lint
@@ -46,7 +45,7 @@ jobs:
       - run: uv sync
       - name: Verify Plugin Registration
         run: uv run pytest --trace-config | grep playwright-artifacts
-      - run: uv run pytest
+      - run: just test
 
   release-please:
     needs: matrix-test
