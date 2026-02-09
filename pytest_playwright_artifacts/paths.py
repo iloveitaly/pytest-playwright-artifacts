@@ -4,12 +4,17 @@ Path handling utilities for pytest-playwright-artifacts.
 This module contains logic for determining where artifacts should be stored
 for individual tests, including sanitization of test names and resolution
 of output directories.
+
+Constants:
+    PLAYWRIGHT_ARTIFACTS_OUTPUT_VAR: The name of the pytest option for the output directory.
 """
 
 import re
 from pathlib import Path
 
 import pytest
+
+PLAYWRIGHT_ARTIFACTS_OUTPUT_VAR = "playwright_artifacts_output"
 
 
 def sanitize_for_artifacts(text: str) -> str:
@@ -52,7 +57,9 @@ def get_artifact_dir(item: pytest.Item) -> Path:
         A pathlib.Path object pointing to the specific test's artifact directory.
         The directory and its parents are created if they do not exist.
     """
-    output_dir = item.config.getoption("playwright_artifacts_output") or "test-results"
+    output_dir = (
+        item.config.getoption(PLAYWRIGHT_ARTIFACTS_OUTPUT_VAR) or "test-results"
+    )
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
     per_test_dir = output_path / sanitize_for_artifacts(item.nodeid)
