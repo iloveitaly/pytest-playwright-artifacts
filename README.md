@@ -1,5 +1,10 @@
 # Capture debugging artifacts on Playwright test failures
 
+[![Release Notes](https://img.shields.io/github/release/iloveitaly/pytest-playwright-artifacts)](https://github.com/iloveitaly/pytest-playwright-artifacts/releases)
+[![Downloads](https://static.pepy.tech/badge/pytest-playwright-artifacts/month)](https://pepy.tech/project/pytest-playwright-artifacts)
+![GitHub CI Status](https://github.com/iloveitaly/pytest-playwright-artifacts/actions/workflows/build_and_publish.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 When your Playwright tests fail, you need to see what went wrong. This pytest plugin automatically captures HTML, screenshots, console logs, and failure summaries the moment a test fails.
 
 I built this because debugging failed tests without artifacts is painful. You're left guessing what the page looked like, what JavaScript errors occurred, or what the actual DOM content was. This plugin captures all of that automatically.
@@ -7,7 +12,7 @@ I built this because debugging failed tests without artifacts is painful. You're
 ## Installation
 
 ```bash
-uv add pytest-playwright-artifacts
+uv add --dev pytest-playwright-artifacts
 ```
 
 ## Usage
@@ -95,14 +100,20 @@ The plugin uses pytest hooks and fixtures to capture artifacts:
 
 ## Disabling features
 
-**Disable console logging:**
+### Disable console logging
+
 ```python
 # In pytest_playwright_artifacts/plugin.py, change:
 @pytest.fixture(autouse=False)
 def playwright_console_logging(...):
 ```
 
-**Disable failure artifacts:**
+### Disable failure artifacts
+
 Comment out the `pytest_runtest_makereport` hook in `plugin.py`.
 
 # [MIT License](LICENSE.md)
+
+---
+
+*This project was created from [iloveitaly/python-package-template](https://github.com/iloveitaly/python-package-template)*

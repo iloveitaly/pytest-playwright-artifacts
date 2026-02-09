@@ -55,8 +55,8 @@ from pathlib import Path
 from typing import Generator, Protocol, TypedDict, cast
 
 import pytest
-from playwright.sync_api import ConsoleMessage, Page
 import structlog
+from playwright.sync_api import ConsoleMessage, Page
 from structlog_config import configure_logger
 
 configure_logger()
