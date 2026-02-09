@@ -59,6 +59,8 @@ import structlog
 from playwright.sync_api import ConsoleMessage, Page
 from structlog_config import configure_logger
 
+from .paths import get_artifact_dir
+
 configure_logger()
 log = structlog.get_logger(logger_name="pytest_playwright_artifacts")
 
@@ -88,6 +90,12 @@ class PlaywrightConfig(Protocol):
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--playwright-artifacts-output",
+        action="store",
+        default="test-results",
+        help="Directory to store Playwright artifacts on test failure. Defaults to 'test-results'.",
+    )
     # register ini option for filtering playwright console logs (no cli flag)
     parser.addini(
         "playwright_console_ignore",
@@ -193,23 +201,6 @@ def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
 def strip_ansi(text: str) -> str:
     # helper to remove ansi escape sequences from text
     return ANSI_ESCAPE_RE.sub("", text)
-
-
-def sanitize_for_artifacts(text: str) -> str:
-    # helper to sanitize test nodeid for artifact directory naming
-    sanitized = re.sub(r"[^A-Za-z0-9]+", "-", text)
-    sanitized = re.sub(r"-+", "-", sanitized).strip("-")
-    return sanitized or "unknown-test"
-
-
-def get_artifact_dir(item: pytest.Item) -> Path:
-    # helper to get or create the per-test artifact directory
-    output_dir = item.config.getoption("output") or "test-results"
-    output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
-    per_test_dir = output_path / sanitize_for_artifacts(item.nodeid)
-    per_test_dir.mkdir(parents=True, exist_ok=True)
-    return per_test_dir
 
 
 def extract_failure_info(

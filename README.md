@@ -85,7 +85,7 @@ Patterns match against both the raw console text and the formatted log line.
 ### Change artifact output directory
 
 ```bash
-pytest --output=my-artifacts
+pytest --playwright-artifacts-output=my-artifacts
 ```
 
 ## How it works
