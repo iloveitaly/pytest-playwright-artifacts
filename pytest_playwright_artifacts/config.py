@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 
-# --- Internal Registry ---
-
 
 @dataclass
 class _OptionDef:
+    """
+    Internal representation of the options this plugin wants to expose to pytest.
+    """
+
     name: str
     default: t.Any
     help_text: str
@@ -17,8 +19,7 @@ class _OptionDef:
 
 
 _REGISTRY: list[_OptionDef] = []
-
-# --- Public Interface ---
+"configuration options this plugin wants to expose to pytest"
 
 
 def set_pytest_option(
@@ -70,54 +71,41 @@ def register_pytest_options(parser: Parser) -> None:
             parser.addini(opt.name, help=opt.help_text, default=None)
 
 
-def write_pytest_options(config: Config) -> None:
-    """
-    Resolves and writes final values to `config.option`.
-    Must be called within `pytest_configure`.
-
-    This enforces the priority: CLI > INI > Default (Runtime).
-    """
-    for opt in _REGISTRY:
-        # 1. Check if CLI set it (Priority #1)
-        # getattr is safe because we might have unregistered options (available=None)
-        val = getattr(config.option, opt.name, None)
-
-        # 2. Check if INI set it (Priority #2)
-        if val in (None, ""):
-            try:
-                # Only check INI if we actually registered it or if it's a standard key
-                val = config.getini(opt.name)
-            except (ValueError, KeyError):
-                val = None
-
-        # 3. Use the Default provided in set_pytest_option (Priority #3)
-        if val in (None, ""):
-            val = opt.default
-
-        # 4. Apply Casting
-        if val is not None and opt.cast:
-            try:
-                val = opt.cast(val)
-            except (ValueError, TypeError):
-                # If cast fails, keep raw value (or log warning)
-                pass
-
-        # 5. WRITE BACK: Force the resolved value into config.option
-        # This makes config.option the Single Source of Truth for the session.
-        setattr(config.option, opt.name, val)
-
-
 def get_pytest_option[T](
     config: Config, key: str, *, cast: t.Callable[[t.Any], T] | None = None
 ) -> T | t.Any | None:
     """
     Retrieve an option.
 
-    Since `write_pytest_options` normalizes everything into `config.option`,
-    this is now a simple lookup.
+    Priority: runtime overrides (config.option) > INI > default (set_pytest_option).
     """
-    val = getattr(config.option, key, None)
+    normalized_key = key.replace("-", "_")
+
+    val = getattr(config.option, normalized_key, None)
+
+    if val in (None, ""):
+        try:
+            val = config.getini(normalized_key)
+        except (ValueError, KeyError):
+            val = None
+
+    if val in (None, ""):
+        opt = next((entry for entry in _REGISTRY if entry.name == normalized_key), None)
+        if opt is not None:
+            val = opt.default
 
     if val is not None and cast:
-        return cast(val)
+        try:
+            return cast(val)
+        except (ValueError, TypeError):
+            return val
+
+    if val is not None:
+        opt = next((entry for entry in _REGISTRY if entry.name == normalized_key), None)
+        if opt is not None and opt.cast:
+            try:
+                return opt.cast(val)
+            except (ValueError, TypeError):
+                return val
+
     return val
