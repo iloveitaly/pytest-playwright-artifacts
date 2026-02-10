@@ -1,7 +1,6 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
 import re
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest

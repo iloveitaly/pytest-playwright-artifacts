@@ -101,7 +101,9 @@ def test_register_pytest_options_ini_only():
 def test_register_pytest_options_all():
     mock_parser = Mock()
     with patch("pytest_playwright_artifacts.config._REGISTRY", []):
-        set_pytest_option("both_option", default="default", help="Both", available="all")
+        set_pytest_option(
+            "both_option", default="default", help="Both", available="all"
+        )
 
         register_pytest_options(mock_parser)
 
