@@ -514,7 +514,7 @@ dev = [
 [[package]]
 name = "pytest-plugin-utils"
 version = "0.1.0"
-source = { git = "https://github.com/iloveitaly/pytest-plugin-utils.git#1c1bcae6e72e636407d44ebf118203aa06b46397" }
+source = { git = "https://github.com/iloveitaly/pytest-plugin-utils.git#1254c8b3a6b253e62d3b35233581cb3bd30fc6ce" }
 dependencies = [
     { name = "structlog-config" },
 ]
