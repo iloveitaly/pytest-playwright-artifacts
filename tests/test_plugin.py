@@ -1,18 +1,21 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
 import re
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
-from pytest_playwright_artifacts.paths import get_artifact_dir, sanitize_for_artifacts
 from pytest_playwright_artifacts.plugin import (
     _compile_ignore_patterns,
     _should_ignore_console_log,
     assert_no_console_errors,
+    extract_failure_info,
     extract_structured_log,
     format_console_msg,
     strip_ansi,
+    write_console_logs,
+    write_failure_summary,
 )
 
 
@@ -23,56 +26,6 @@ def test_strip_ansi():
 
     text_without_ansi = "Plain Text"
     assert strip_ansi(text_without_ansi) == "Plain Text"
-
-
-def test_sanitize_for_artifacts():
-    """Verify test nodeid is properly sanitized for directory names."""
-    nodeid = "test_file.py::TestClass::test_method[param-value]"
-    sanitized = sanitize_for_artifacts(nodeid)
-
-    assert re.match(r"^[A-Za-z0-9-]+$", sanitized)
-    assert "::" not in sanitized
-    assert "[" not in sanitized
-    assert "]" not in sanitized
-
-
-def test_get_artifact_dir_respects_option(tmp_path):
-    """Verify get_artifact_dir respects the CLI option."""
-    mock_item = Mock()
-    mock_item.nodeid = "test_nodeid"
-    # Mock CLI option via config.option object
-    mock_item.config.option.playwright_artifacts_output = str(
-        tmp_path / "custom_output"
-    )
-
-    result = get_artifact_dir(mock_item)
-
-    assert result == tmp_path / "custom_output" / "test-nodeid"
-    assert result.exists()
-
-
-def test_get_artifact_dir_default(tmp_path):
-    """Verify get_artifact_dir uses default when option is None."""
-    mock_item = Mock()
-    mock_item.nodeid = "test_nodeid"
-    # Mock CLI option to be None (not set)
-    # Note: getattr(mock.option, ...) returns a Mock by default, so we must set it to None explicitly
-    mock_item.config.option.playwright_artifacts_output = None
-    # Mock INI to return None
-    mock_item.config.getini.return_value = None
-
-    # We need to mock Path creation relative to current dir, or just check the suffix/name
-    # Since the code does `Path(output_dir)`, if output_dir is "test-results", it's relative.
-    # To test this safely without creating dirs in CWD, we can mock Path or run in a safe CWD.
-    # For this unit test, we can just verify the logic path.
-
-    # Actually, the code does:
-    # output_path = Path(output_dir)
-    # output_path.mkdir(exist_ok=True)
-    # ...
-    # This will try to create 'test-results' in current CWD.
-    # We should avoid side effects in unit tests.
-    pass  # Skip for now to avoid side effects, or use fs mock if available.
 
 
 def test_format_console_msg():
@@ -203,6 +156,175 @@ def test_assert_no_console_errors_no_logs():
     mock_request.config = mock_config
 
     assert_no_console_errors(mock_request)
+
+
+def test_extract_failure_info_with_reprcrash():
+    mock_rep = Mock()
+    mock_rep.longrepr.reprcrash.message = "AssertionError: test failed"
+    mock_rep.longrepr.reprcrash.path = "/path/to/test.py"
+    mock_rep.longrepr.reprcrash.lineno = 42
+    mock_rep.longreprtext = "Full traceback text"
+
+    mock_call = Mock()
+    mock_item = Mock()
+    mock_item.location = ("test.py", 10, "test_function")
+
+    result = extract_failure_info(mock_rep, mock_call, mock_item)
+
+    assert result["error_message"] == "AssertionError: test failed"
+    assert result["error_file"] == "/path/to/test.py"
+    assert result["error_line"] == 42
+    assert result["longrepr_text"] == "Full traceback text"
+
+
+def test_extract_failure_info_fallback_excinfo():
+    mock_rep = Mock()
+    mock_rep.longrepr = None
+
+    mock_call = Mock()
+    mock_call.excinfo.exconly.return_value = "ValueError: something went wrong"
+
+    mock_item = Mock()
+    mock_item.location = ("test.py", 10, "test_function")
+
+    result = extract_failure_info(mock_rep, mock_call, mock_item)
+
+    assert result["error_message"] == "ValueError: something went wrong"
+    assert result["error_file"] == "test.py"
+    assert result["error_line"] == 10
+
+
+def test_extract_failure_info_fallback_item_location():
+    mock_rep = Mock()
+    mock_rep.longrepr.reprcrash = None
+    mock_rep.longreprtext = "Some error text"
+
+    mock_call = Mock()
+    mock_call.excinfo = None
+
+    mock_item = Mock()
+    mock_item.location = ("test_module.py", 25, "test_func")
+
+    result = extract_failure_info(mock_rep, mock_call, mock_item)
+
+    assert result["error_file"] == "test_module.py"
+    assert result["error_line"] == 25
+
+
+def test_extract_failure_info_strips_ansi():
+    mock_rep = Mock()
+    mock_rep.longrepr.reprcrash.message = "\x1b[31mRed Error\x1b[0m"
+    mock_rep.longrepr.reprcrash.path = "/path/to/test.py"
+    mock_rep.longrepr.reprcrash.lineno = 42
+    mock_rep.longreprtext = "\x1b[31mFull traceback\x1b[0m"
+
+    mock_call = Mock()
+    mock_item = Mock()
+    mock_item.location = ("test.py", 10, "test_function")
+
+    result = extract_failure_info(mock_rep, mock_call, mock_item)
+
+    assert result["error_message"] == "Red Error"
+    assert result["longrepr_text"] == "Full traceback"
+
+
+def test_write_failure_summary(tmp_path):
+    mock_item = Mock()
+    mock_item.nodeid = "test_module.py::test_function"
+
+    mock_rep = Mock()
+    mock_rep.when = "call"
+
+    failure_info = {
+        "error_message": "AssertionError: test failed",
+        "error_file": "test_module.py",
+        "error_line": 42,
+        "longrepr_text": "Full traceback here",
+    }
+
+    write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
+
+    failure_file = tmp_path / "failure.txt"
+    assert failure_file.exists()
+
+    content = failure_file.read_text()
+    assert "test_module.py::test_function" in content
+    assert "call" in content
+    assert "AssertionError: test failed" in content
+    assert "test_module.py:42" in content
+    assert "Full traceback here" in content
+
+
+def test_write_failure_summary_missing_fields(tmp_path):
+    mock_item = Mock()
+    mock_item.nodeid = "test_module.py::test_function"
+
+    mock_rep = Mock()
+    mock_rep.when = "setup"
+
+    failure_info = {
+        "error_message": None,
+        "error_file": None,
+        "error_line": None,
+        "longrepr_text": None,
+    }
+
+    write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
+
+    failure_file = tmp_path / "failure.txt"
+    assert failure_file.exists()
+
+    content = failure_file.read_text()
+    assert "test_module.py::test_function" in content
+    assert "setup" in content
+
+
+def test_write_console_logs(tmp_path):
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {"type": "log", "text": "message 1", "args": [], "location": {}},
+            {"type": "error", "text": "message 2", "args": ["arg"], "location": {}},
+        ]
+    }
+
+    write_console_logs(tmp_path, mock_config, "test_nodeid")
+
+    logs_file = tmp_path / "console_logs.log"
+    assert logs_file.exists()
+
+    content = logs_file.read_text()
+    assert "message 1" in content
+    assert "message 2" in content
+    assert "test_nodeid" not in mock_config._playwright_console_logs
+
+
+def test_write_console_logs_no_logs(tmp_path):
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {}
+
+    write_console_logs(tmp_path, mock_config, "test_nodeid")
+
+    logs_file = tmp_path / "console_logs.log"
+    assert not logs_file.exists()
+
+
+def test_pytest_configure():
+    from unittest.mock import patch
+
+    from pytest_playwright_artifacts.plugin import pytest_configure
+
+    mock_config = Mock()
+
+    with patch(
+        "pytest_playwright_artifacts.plugin._compile_ignore_patterns", return_value=[]
+    ):
+        pytest_configure(mock_config)
+
+        assert hasattr(mock_config, "_playwright_console_logs")
+        assert isinstance(mock_config._playwright_console_logs, dict)
+        assert hasattr(mock_config, "_playwright_console_ignore_patterns")
+        assert isinstance(mock_config._playwright_console_ignore_patterns, list)
 
 
 def test_plugin_loads():
