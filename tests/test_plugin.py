@@ -1,7 +1,6 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
 import re
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -41,7 +40,10 @@ def test_get_artifact_dir_respects_option(tmp_path):
     """Verify get_artifact_dir respects the CLI option."""
     mock_item = Mock()
     mock_item.nodeid = "test_nodeid"
-    mock_item.config.getoption.return_value = str(tmp_path / "custom_output")
+    # Mock CLI option via config.option object
+    mock_item.config.option.playwright_artifacts_output = str(
+        tmp_path / "custom_output"
+    )
 
     result = get_artifact_dir(mock_item)
 
@@ -53,10 +55,11 @@ def test_get_artifact_dir_default(tmp_path):
     """Verify get_artifact_dir uses default when option is None."""
     mock_item = Mock()
     mock_item.nodeid = "test_nodeid"
-    # Mock getoption to return None, simulating no option set
-    # However, since we set a default in addoption, in a real run it would be 'test-results'
-    # But get_artifact_dir logic handles `or "test-results"` explicitly if getoption returns falsy
-    mock_item.config.getoption.return_value = None
+    # Mock CLI option to be None (not set)
+    # Note: getattr(mock.option, ...) returns a Mock by default, so we must set it to None explicitly
+    mock_item.config.option.playwright_artifacts_output = None
+    # Mock INI to return None
+    mock_item.config.getini.return_value = None
 
     # We need to mock Path creation relative to current dir, or just check the suffix/name
     # Since the code does `Path(output_dir)`, if output_dir is "test-results", it's relative.
@@ -109,6 +112,8 @@ def test_extract_structured_log():
 def test_compile_ignore_patterns():
     """Verify ignore patterns are compiled from config."""
     mock_config = Mock()
+    # Explicitly set CLI option to None so it falls back to INI
+    mock_config.option.playwright_console_ignore = None
     mock_config.getini.return_value = ["pattern1.*", "pattern2.*", "pattern1.*"]
 
     patterns = _compile_ignore_patterns(mock_config)

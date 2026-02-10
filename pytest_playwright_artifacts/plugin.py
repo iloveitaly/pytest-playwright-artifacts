@@ -57,14 +57,31 @@ from typing import Generator, Protocol, TypedDict, cast
 import pytest
 import structlog
 from playwright.sync_api import ConsoleMessage, Page
-from structlog_config import configure_logger
 
+from .config import get_pytest_option, register_pytest_options, set_pytest_option
 from .paths import get_artifact_dir
 
-configure_logger()
-log = structlog.get_logger(logger_name="pytest_playwright_artifacts")
+log = structlog.get_logger(logger_name=__package__)
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+# Define configuration options
+set_pytest_option(
+    "playwright_artifacts_output",
+    default="test-results",
+    help="Directory to store artifact files on test failure.",
+    available="cli_option",
+    type_hint=str,
+)
+
+set_pytest_option(
+    "playwright_console_ignore",
+    default=[],
+    help="List of regex (one per line) to ignore Playwright console messages.",
+    available="ini",
+    type_hint=list[str],
+)
 
 
 class StructuredConsoleLog(TypedDict):
@@ -90,24 +107,15 @@ class PlaywrightConfig(Protocol):
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
-        "--playwright-artifacts-output",
-        action="store",
-        default="test-results",
-        help="Directory to store Playwright artifacts on test failure. Defaults to 'test-results'.",
-    )
-    # register ini option for filtering playwright console logs (no cli flag)
-    parser.addini(
-        "playwright_console_ignore",
-        "List of regex (one per line) to ignore Playwright console messages.",
-        type="linelist",
-        default=[],
-    )
+    register_pytest_options(parser)
 
 
 def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
     # collect and compile unique ignore regex from ini configuration
-    ini_patterns = cast(list[str], config.getini("playwright_console_ignore") or [])
+    ini_patterns = (
+        get_pytest_option(cast(pytest.Config, config), "playwright_console_ignore")
+        or []
+    )
     unique_patterns = list(dict.fromkeys(ini_patterns))
     return [re.compile(p) for p in unique_patterns]
 
