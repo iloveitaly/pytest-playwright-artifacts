@@ -66,16 +66,20 @@ def register_pytest_options(parser: Parser) -> None:
     Must be called within `pytest_addoption` to register CLI/INI flags.
     """
     for opt in _REGISTRY:
+        help_text = opt.help_text
+        if opt.default is not None:
+            help_text = f"{opt.help_text} (default: {opt.default})"
+
         # CLI Registration
         if opt.available in ("all", "cli_option"):
             cli_name = f"--{opt.name.replace('_', '-')}"
             # CRITICAL: We set default=None here so CLI allows fallback to INI/Runtime
-            parser.addoption(cli_name, action="store", default=None, help=opt.help_text)
+            parser.addoption(cli_name, action="store", default=None, help=help_text)
 
         # INI Registration
         if opt.available in ("all", "ini"):
             # We set default=None here so INI allows fallback to Runtime default
-            parser.addini(opt.name, help=opt.help_text, default=None)
+            parser.addini(opt.name, help=help_text, default=None)
 
 
 def get_pytest_option[T](
@@ -88,7 +92,6 @@ def get_pytest_option[T](
     1. Runtime overrides (via config.option in pytest_configure)
     2. CLI arguments (e.g., --my-key)
     3. Configuration files (pytest.ini, pyproject.toml)
-    4. Defaults from the registry (set_pytest_option)
 
     Caveats:
     - Default value trap: if a CLI option is registered with a non-None default,
@@ -106,32 +109,35 @@ def get_pytest_option[T](
             The resolved value, optionally casted. Returns None if not found.
     """
     normalized_key = key.replace("-", "_")
+    opt = next((entry for entry in _REGISTRY if entry.name == normalized_key), None)
 
+    # CLI/runtime value from config.option (argparse Namespace)
     val = getattr(config.option, normalized_key, None)
 
     if val in (None, ""):
+        # INI value from pytest.ini or pyproject.toml
         try:
             val = config.getini(normalized_key)
         except (ValueError, KeyError):
             val = None
 
     if val in (None, ""):
-        opt = next((entry for entry in _REGISTRY if entry.name == normalized_key), None)
+        # Default value from the registry
         if opt is not None:
             val = opt.default
 
     if val is not None and cast:
+        # Casted value provided by the caller
         try:
             return cast(val)
         except (ValueError, TypeError):
             return val
 
-    if val is not None:
-        opt = next((entry for entry in _REGISTRY if entry.name == normalized_key), None)
-        if opt is not None and opt.cast:
-            try:
-                return opt.cast(val)
-            except (ValueError, TypeError):
-                return val
+    if val is not None and opt is not None and opt.cast:
+        # Casted value from the registry
+        try:
+            return opt.cast(val)
+        except (ValueError, TypeError):
+            return val
 
     return val
