@@ -58,7 +58,11 @@ import pytest
 import structlog
 from playwright.sync_api import ConsoleMessage, Page
 
-from pytest_plugin_utils import get_pytest_option, register_pytest_options, set_pytest_option
+from pytest_plugin_utils import (
+    get_pytest_option,
+    register_pytest_options,
+    set_pytest_option,
+)
 from pytest_plugin_utils import get_artifact_dir, set_artifact_dir_option
 
 log = structlog.get_logger(logger_name=__package__)
