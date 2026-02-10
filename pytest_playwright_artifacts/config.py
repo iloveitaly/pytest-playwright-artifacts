@@ -25,14 +25,24 @@ class _OptionDef:
     help_text: str
     available: t.Literal["all", "ini", "cli_option", None]
     type_hint: t.Any | None
-    ini_type: str | None
+    ini_type: (
+        t.Literal[
+            "string", "paths", "pathlist", "args", "linelist", "bool", "int", "float"
+        ]
+        | None
+    )
 
 
 _REGISTRY: list[_OptionDef] = []
 "configuration options this plugin wants to expose to pytest"
 
 
-def _infer_ini_type(type_hint: t.Any) -> str | None:
+def _infer_ini_type(
+    type_hint: t.Any,
+) -> (
+    t.Literal["string", "paths", "pathlist", "args", "linelist", "bool", "int", "float"]
+    | None
+):
     """
     Infer the pytest INI type string from a Python type hint.
 
