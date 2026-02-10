@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
  "playwright>=1.40.0",
+ "pytest-plugin-utils>=0.1.0",
  "structlog>=25.5.0",
 ]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
@@ -22,6 +23,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 # avoids the src/ directory structure
 module-root = ""
+
+[tool.uv.sources]
+pytest-plugin-utils = { path = "../pytest-plugin-utils" }
 
 [dependency-groups]
 dev = [
