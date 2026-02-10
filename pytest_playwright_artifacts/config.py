@@ -3,6 +3,8 @@ Pytest option registry and resolution helpers for this plugin.
 
 Options are registered once, then resolved at read time with a consistent
 precedence: runtime overrides > INI > defaults from the registry.
+
+https://gemini.google.com/app/4eb808ea09b6993c
 """
 
 import typing as t
