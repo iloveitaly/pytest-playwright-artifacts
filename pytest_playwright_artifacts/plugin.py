@@ -59,7 +59,7 @@ import structlog
 from playwright.sync_api import ConsoleMessage, Page
 
 from .config import get_pytest_option, register_pytest_options, set_pytest_option
-from .paths import get_artifact_dir
+from .paths import get_artifact_dir, set_artifact_dir_option
 
 log = structlog.get_logger(logger_name=__package__)
 
@@ -123,6 +123,7 @@ def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
 def pytest_configure(config: PlaywrightConfig) -> None:
     config._playwright_console_logs = {}
     config._playwright_console_ignore_patterns = _compile_ignore_patterns(config)
+    set_artifact_dir_option("playwright_artifacts_output")
 
 
 def format_console_msg(msg: StructuredConsoleLog) -> str:
