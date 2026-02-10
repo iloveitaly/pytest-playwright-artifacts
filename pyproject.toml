@@ -5,7 +5,10 @@ description = "Pytest plugin that captures HTML, screenshots, and console logs o
 keywords = ["pytest", "playwright", "testing", "artifacts"]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["structlog-config>=0.6.0", "playwright>=1.40.0"]
+dependencies = [
+ "playwright>=1.40.0",
+ "structlog>=25.5.0",
+]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/pytest-playwright-artifacts" }
 
