@@ -112,7 +112,7 @@ def playwright_console_logging(...):
 
 Comment out the `pytest_runtest_makereport` hook in `plugin.py`.
 
-# [MIT License](LICENSE.md)
+## [MIT License](LICENSE.md)
 
 ---
 
