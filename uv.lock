@@ -496,7 +496,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "playwright", specifier = ">=1.40.0" },
-    { name = "pytest-plugin-utils", git = "https://github.com/iloveitaly/pytest-plugin-utils.git" },
+    { name = "pytest-plugin-utils", specifier = ">=0.1.0" },
     { name = "structlog", specifier = ">=25.5.0" },
 ]
 
@@ -514,9 +514,13 @@ dev = [
 [[package]]
 name = "pytest-plugin-utils"
 version = "0.1.0"
-source = { git = "https://github.com/iloveitaly/pytest-plugin-utils.git#1254c8b3a6b253e62d3b35233581cb3bd30fc6ce" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "structlog-config" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/6a/e5ee2c91f789c1f71a92c76328d62aee0b885d210396e479e25e102921c5/pytest_plugin_utils-0.1.0.tar.gz", hash = "sha256:2e12971d46eebefda7c99d3936be946a51482e1519db59855ef1104cefa6c852", size = 6258, upload-time = "2026-02-10T23:28:48.341Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/60/10b0a7a1b6a705eebdee9948b8a03042c723c05d41ddcd79589695183c6e/pytest_plugin_utils-0.1.0-py3-none-any.whl", hash = "sha256:cf0d359db06cd28abbb9197ea46ca643dc227ff59a89f095081272d2c52d829c", size = 7532, upload-time = "2026-02-10T23:28:48.985Z" },
 ]
 
 [[package]]
