@@ -1,3 +1,10 @@
+"""
+Pytest option registry and resolution helpers for this plugin.
+
+Options are registered once, then resolved at read time with a consistent
+precedence: runtime overrides > INI > defaults from the registry.
+"""
+
 import typing as t
 from dataclasses import dataclass
 
@@ -75,9 +82,28 @@ def get_pytest_option[T](
     config: Config, key: str, *, cast: t.Callable[[t.Any], T] | None = None
 ) -> T | t.Any | None:
     """
-    Retrieve an option.
+    Retrieve a configuration value from runtime overrides, CLI, or INI files.
 
-    Priority: runtime overrides (config.option) > INI > default (set_pytest_option).
+    Priority chain:
+    1. Runtime overrides (via config.option in pytest_configure)
+    2. CLI arguments (e.g., --my-key)
+    3. Configuration files (pytest.ini, pyproject.toml)
+    4. Defaults from the registry (set_pytest_option)
+
+    Caveats:
+    - Default value trap: if a CLI option is registered with a non-None default,
+        argparse will always supply that value and INI will never be consulted.
+        Register CLI options with default=None and define defaults in code.
+    - Hyphens vs underscores: pytest normalizes --my-key to my_key, so pass
+        keys with underscores.
+
+    Args:
+            config: The pytest Config object.
+            key: The option name (use underscores).
+            cast: Optional callable to transform the value (e.g., int, bool, list).
+
+    Returns:
+            The resolved value, optionally casted. Returns None if not found.
     """
     normalized_key = key.replace("-", "_")
 
