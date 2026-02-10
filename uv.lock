@@ -496,7 +496,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "playwright", specifier = ">=1.40.0" },
-    { name = "pytest-plugin-utils", directory = "../pytest-plugin-utils" },
+    { name = "pytest-plugin-utils", git = "https://github.com/iloveitaly/pytest-plugin-utils.git" },
     { name = "structlog", specifier = ">=25.5.0" },
 ]
 
@@ -514,22 +514,9 @@ dev = [
 [[package]]
 name = "pytest-plugin-utils"
 version = "0.1.0"
-source = { directory = "../pytest-plugin-utils" }
+source = { git = "https://github.com/iloveitaly/pytest-plugin-utils.git#1c1bcae6e72e636407d44ebf118203aa06b46397" }
 dependencies = [
     { name = "structlog-config" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "structlog-config", specifier = ">=0.10.0" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "covdefaults", specifier = ">=2.3.0" },
-    { name = "coverage", specifier = ">=7.13.4" },
-    { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.408" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "ruff", specifier = ">=0.15.0" },
 ]
 
 [[package]]
