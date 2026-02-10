@@ -68,10 +68,12 @@ from pytest_plugin_utils import get_artifact_dir, set_artifact_dir_option
 log = structlog.get_logger(logger_name=__package__)
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+PLUGIN_NAMESPACE: str = __package__ or "pytest_playwright_artifacts"
 
 
 # Define configuration options
 set_pytest_option(
+    PLUGIN_NAMESPACE,
     "playwright_artifacts_output",
     default="test-results",
     help="Directory to store artifact files on test failure.",
@@ -80,6 +82,7 @@ set_pytest_option(
 )
 
 set_pytest_option(
+    PLUGIN_NAMESPACE,
     "playwright_console_ignore",
     default=[],
     help="List of regex (one per line) to ignore Playwright console messages.",
@@ -87,7 +90,7 @@ set_pytest_option(
     type_hint=list[str],
 )
 
-set_artifact_dir_option("playwright_artifacts_output")
+set_artifact_dir_option(PLUGIN_NAMESPACE, "playwright_artifacts_output")
 
 
 class StructuredConsoleLog(TypedDict):
@@ -113,13 +116,13 @@ class PlaywrightConfig(Protocol):
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    register_pytest_options(parser)
+    register_pytest_options(PLUGIN_NAMESPACE, parser)
 
 
 def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
     # collect and compile unique ignore regex from ini configuration
     ini_patterns = (
-        get_pytest_option(cast(pytest.Config, config), "playwright_console_ignore")
+        get_pytest_option(PLUGIN_NAMESPACE, cast(pytest.Config, config), "playwright_console_ignore")
         or []
     )
     unique_patterns = list(dict.fromkeys(ini_patterns))
@@ -329,7 +332,7 @@ def pytest_runtest_makereport(
         return
 
     page = cast(Page, page)
-    per_test_dir = get_artifact_dir(item)
+    per_test_dir = get_artifact_dir(PLUGIN_NAMESPACE, item)
 
     failure_file = per_test_dir / "failure.html"
     failure_file.write_text(page.content())
