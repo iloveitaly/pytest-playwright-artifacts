@@ -122,7 +122,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
     # collect and compile unique ignore regex from ini configuration
     ini_patterns = (
-        get_pytest_option(PLUGIN_NAMESPACE, cast(pytest.Config, config), "playwright_console_ignore")
+        get_pytest_option(
+            PLUGIN_NAMESPACE, cast(pytest.Config, config), "playwright_console_ignore"
+        )
         or []
     )
     unique_patterns = list(dict.fromkeys(ini_patterns))
