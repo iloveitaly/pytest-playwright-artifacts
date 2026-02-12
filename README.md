@@ -84,8 +84,17 @@ Patterns match against both the raw console text and the formatted log line.
 
 ### Change artifact output directory
 
+By default, artifacts are saved to `test-results/`. You can customize this:
+
+**Command line:**
 ```bash
 pytest --playwright-artifacts-output=my-artifacts
+```
+
+**pyproject.toml:**
+```toml
+[tool.pytest.ini_options]
+playwright_artifacts_output = "my-artifacts"
 ```
 
 ## How it works
