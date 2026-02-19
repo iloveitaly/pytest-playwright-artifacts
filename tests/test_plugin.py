@@ -1,17 +1,21 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
 import re
-from unittest.mock import Mock
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
 from pytest_playwright_artifacts.plugin import (
     _compile_ignore_patterns,
+    _is_playwright_timeout,
+    _resolve_timeout_retries,
     _should_ignore_console_log,
     assert_no_console_errors,
     extract_failure_info,
     extract_structured_log,
     format_console_msg,
+    pytest_report_teststatus,
+    pytest_runtest_protocol,
     strip_ansi,
     write_console_logs,
     write_failure_summary,
@@ -338,3 +342,224 @@ def test_plugin_loads():
     assert hasattr(plugin, "pytest_addoption")
     assert hasattr(plugin, "pytest_runtest_makereport")
     assert hasattr(plugin, "playwright_console_logging")
+    assert hasattr(plugin, "pytest_runtest_protocol")
+    assert hasattr(plugin, "pytest_report_teststatus")
+
+
+def test_is_playwright_timeout_with_timeout_error():
+    mock_report = Mock()
+    mock_report.passed = False
+    mock_report.skipped = False
+    mock_report.longrepr = "playwright._impl._errors.TimeoutError: Timeout 30000ms exceeded."
+
+    assert _is_playwright_timeout(mock_report) is True
+
+
+def test_is_playwright_timeout_with_other_error():
+    mock_report = Mock()
+    mock_report.passed = False
+    mock_report.skipped = False
+    mock_report.longrepr = "AssertionError: assert 1 == 2"
+
+    assert _is_playwright_timeout(mock_report) is False
+
+
+def test_is_playwright_timeout_when_passed():
+    mock_report = Mock()
+    mock_report.passed = True
+    mock_report.skipped = False
+
+    assert _is_playwright_timeout(mock_report) is False
+
+
+def test_is_playwright_timeout_when_skipped():
+    mock_report = Mock()
+    mock_report.passed = False
+    mock_report.skipped = True
+
+    assert _is_playwright_timeout(mock_report) is False
+
+
+def test_is_playwright_timeout_no_longrepr():
+    mock_report = Mock()
+    mock_report.passed = False
+    mock_report.skipped = False
+    mock_report.longrepr = None
+
+    assert _is_playwright_timeout(mock_report) is False
+
+
+def test_resolve_timeout_retries_from_marker():
+    mock_item = Mock()
+    mock_marker = Mock()
+    mock_marker.args = [3]
+    mock_item.get_closest_marker.return_value = mock_marker
+
+    result = _resolve_timeout_retries(mock_item)
+
+    assert result == 3
+    mock_item.get_closest_marker.assert_called_once_with("playwright_timeout_retries")
+
+
+def test_resolve_timeout_retries_from_ini():
+    mock_item = Mock()
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 2
+
+    result = _resolve_timeout_retries(mock_item)
+
+    assert result == 2
+
+
+def test_resolve_timeout_retries_defaults_to_zero():
+    mock_item = Mock()
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 0
+
+    result = _resolve_timeout_retries(mock_item)
+
+    assert result == 0
+
+
+def test_resolve_timeout_retries_marker_takes_precedence():
+    mock_item = Mock()
+    mock_marker = Mock()
+    mock_marker.args = [5]
+    mock_item.get_closest_marker.return_value = mock_marker
+    mock_item.config.getini.return_value = 1
+
+    result = _resolve_timeout_retries(mock_item)
+
+    assert result == 5
+    mock_item.config.getini.assert_not_called()
+
+
+def _make_test_report(when="call", passed=True, failed=False, longrepr=None):
+    report = Mock(spec=pytest.TestReport)
+    report.when = when
+    report.passed = passed
+    report.failed = failed
+    report.skipped = False
+    report.longrepr = longrepr
+    report.outcome = "passed" if passed else "failed"
+    return report
+
+
+def test_pytest_runtest_protocol_no_page_fixture():
+    mock_item = Mock()
+    mock_item.fixturenames = ["request", "tmp_path"]
+
+    result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is None
+
+
+def test_pytest_runtest_protocol_zero_retries():
+    mock_item = Mock()
+    mock_item.fixturenames = ["page", "request"]
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 0
+
+    result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is None
+
+
+def test_pytest_runtest_protocol_passes_on_first_attempt():
+    mock_item = Mock()
+    mock_item.fixturenames = ["page", "request"]
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 2
+
+    passing_report = _make_test_report(when="call", passed=True)
+
+    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[passing_report]) as mock_protocol:
+        result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is True
+    assert mock_protocol.call_count == 1
+
+
+def test_pytest_runtest_protocol_non_timeout_failure_no_retry():
+    mock_item = Mock()
+    mock_item.fixturenames = ["page", "request"]
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 2
+
+    failing_report = _make_test_report(when="call", passed=False, failed=True, longrepr="AssertionError: expected True")
+
+    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[failing_report]) as mock_protocol:
+        result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is True
+    assert mock_protocol.call_count == 1
+
+
+def test_pytest_runtest_protocol_retries_on_timeout():
+    mock_item = MagicMock()
+    mock_item.fixturenames = ["page", "request"]
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 2
+
+    timeout_longrepr = "playwright._impl._errors.TimeoutError: Timeout exceeded"
+    timeout_report = _make_test_report(when="call", passed=False, failed=True, longrepr=timeout_longrepr)
+    passing_report = _make_test_report(when="call", passed=True)
+
+    call_count = 0
+
+    def side_effect(item, nextitem, log):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return [timeout_report]
+        return [passing_report]
+
+    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", side_effect=side_effect):
+        result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is True
+    assert call_count == 2
+
+
+def test_pytest_runtest_protocol_exhausts_retries_on_repeated_timeout():
+    mock_item = MagicMock()
+    mock_item.fixturenames = ["page", "request"]
+    mock_item.get_closest_marker.return_value = None
+    mock_item.config.option.playwright_timeout_retries = None
+    mock_item.config.getini.return_value = 2
+
+    timeout_longrepr = "playwright._impl._errors.TimeoutError: Timeout exceeded"
+    timeout_report = _make_test_report(when="call", passed=False, failed=True, longrepr=timeout_longrepr)
+
+    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[timeout_report]) as mock_protocol:
+        result = pytest_runtest_protocol(mock_item, nextitem=None)
+
+    assert result is True
+    # 1 initial attempt + 2 retries = 3 total
+    assert mock_protocol.call_count == 3
+
+
+def test_pytest_report_teststatus_rerun():
+    mock_report = Mock()
+    mock_report.outcome = "rerun"
+    mock_config = Mock()
+
+    result = pytest_report_teststatus(mock_report, mock_config)
+
+    assert result == ("rerun", "R", "RERUN")
+
+
+def test_pytest_report_teststatus_other_outcome():
+    mock_report = Mock()
+    mock_report.outcome = "passed"
+    mock_config = Mock()
+
+    result = pytest_report_teststatus(mock_report, mock_config)
+
+    assert result is None

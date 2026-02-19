@@ -56,6 +56,7 @@ from typing import Generator, Protocol, TypedDict, cast
 
 import pytest
 import structlog
+from _pytest.runner import runtestprotocol
 from playwright.sync_api import ConsoleMessage, Page
 
 from pytest_plugin_utils import (
@@ -88,6 +89,15 @@ set_pytest_option(
     help="List of regex (one per line) to ignore Playwright console messages.",
     available="ini",
     type_hint=list[str],
+)
+
+set_pytest_option(
+    PLUGIN_NAMESPACE,
+    "playwright_timeout_retries",
+    default=0,
+    help="Number of times to retry a Playwright test on TimeoutError.",
+    available="ini",
+    type_hint=int,
 )
 
 set_artifact_dir_option(PLUGIN_NAMESPACE, "playwright_artifacts_output")
@@ -134,6 +144,10 @@ def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
 def pytest_configure(config: PlaywrightConfig) -> None:
     config._playwright_console_logs = {}
     config._playwright_console_ignore_patterns = _compile_ignore_patterns(config)
+    cast(pytest.Config, config).addinivalue_line(
+        "markers",
+        "playwright_timeout_retries(count): retry Playwright tests on TimeoutError",
+    )
 
 
 def format_console_msg(msg: StructuredConsoleLog) -> str:
@@ -309,6 +323,74 @@ def write_console_logs(
     del config._playwright_console_logs[nodeid]
 
     return logs_file
+
+
+def _is_playwright_timeout(report: pytest.TestReport) -> bool:
+    if report.passed or report.skipped:
+        return False
+    longrepr_str = str(report.longrepr) if report.longrepr else ""
+    return "playwright._impl._errors.TimeoutError" in longrepr_str
+
+
+def _resolve_timeout_retries(item: pytest.Item) -> int:
+    marker = item.get_closest_marker("playwright_timeout_retries")
+    if marker is not None:
+        return int(marker.args[0])
+    return int(
+        get_pytest_option(
+            PLUGIN_NAMESPACE, item.config, "playwright_timeout_retries"
+        )
+        or 0
+    )
+
+
+def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> bool | None:
+    if "page" not in cast(list[str], getattr(item, "fixturenames", [])):
+        return None
+
+    retries = _resolve_timeout_retries(item)
+    if retries == 0:
+        return None
+
+    for attempt in range(retries + 1):
+        is_last_attempt = attempt == retries
+        reports = runtestprotocol(item, nextitem=nextitem, log=is_last_attempt)
+
+        failed_call = next(
+            (r for r in reports if r.when == "call" and r.failed), None
+        )
+
+        if failed_call is None or not _is_playwright_timeout(failed_call):
+            if not is_last_attempt:
+                for report in reports:
+                    item.ihook.pytest_runtest_logreport(report=report)
+            return True
+
+        if is_last_attempt:
+            return True
+
+        log.info(
+            "playwright timeout, retrying test",
+            nodeid=item.nodeid,
+            attempt=attempt + 1,
+            retries=retries,
+        )
+
+        for report in reports:
+            # pytest-rerunfailures pattern: "rerun" is not in pyright's Literal type for outcome
+            setattr(report, "outcome", "rerun")
+            item.ihook.pytest_runtest_logreport(report=report)
+
+    return True
+
+
+def pytest_report_teststatus(
+    report: pytest.TestReport, config: pytest.Config
+) -> tuple[str, str, str] | None:
+    del config  # required by pytest hook signature but unused
+    if report.outcome == "rerun":
+        return "rerun", "R", "RERUN"
+    return None
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

@@ -45,6 +45,40 @@ def test_no_console_errors(page, request):
 
 This fails the test if any `console.error()` messages were logged during the test.
 
+### Retry on Playwright timeouts
+
+Playwright tests can flake due to network latency or slow animations. The plugin can retry a test automatically when it fails with a `TimeoutError`. Only `playwright._impl._errors.TimeoutError` triggers a retry — assertion failures and other errors fail immediately. Retried attempts show as `R` / `RERUN` in pytest output.
+
+#### Per-test
+
+```python
+@pytest.mark.playwright_timeout_retries(2)
+def test_checkout(page):
+    page.goto("https://example.com/checkout")
+    page.click("#pay-button")
+    expect(page.locator(".success")).to_be_visible()
+```
+
+#### Per-folder
+
+Add a `pytestmark` to `conftest.py` in the folder you want to cover:
+
+```python
+# tests/e2e/conftest.py
+import pytest
+
+pytestmark = [pytest.mark.playwright_timeout_retries(2)]
+```
+
+#### Global default
+
+Set a default for the entire suite in `pyproject.toml`. A marker on an individual test or folder always takes precedence.
+
+```toml
+[tool.pytest.ini_options]
+playwright_timeout_retries = 2
+```
+
 ## Features
 
 - Automatic artifact capture on test failure: HTML, screenshots, failure summary, and console logs
@@ -52,6 +86,7 @@ This fails the test if any `console.error()` messages were logged during the tes
 - Regex-based filtering to ignore noisy console messages
 - Helper assertion `assert_no_console_errors()` to fail tests on console errors
 - Per-test artifact directories for clean organization
+- Automatic retry on Playwright `TimeoutError`, configurable per-test, per-folder, or globally
 
 ## Configuration
 
