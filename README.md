@@ -117,6 +117,16 @@ pytest --playwright-artifacts-output=my-artifacts
 playwright_artifacts_output = "my-artifacts"
 ```
 
+## Related Projects
+
+- [pytest-playwright-visual-snapshot](https://github.com/iloveitaly/pytest-playwright-visual-snapshot): Adds visual regression testing capabilities to your Playwright and pytest suite.
+- [playwright-trace-analyzer](https://github.com/iloveitaly/playwright-trace-analyzer): Provides a CLI for inspecting Playwright trace files without needing the full browser viewer.
+- [pytest-plugin-utils](https://github.com/iloveitaly/pytest-plugin-utils): Offers reusable logic for managing artifacts and configurations when building other pytest plugins.
+- [gh-clean-artifacts](https://github.com/iloveitaly/gh-clean-artifacts): Helps manage storage costs by pruning old or large GitHub Actions artifacts.
+- [pytest-line-runner](https://github.com/iloveitaly/pytest-line-runner): Simplifies test execution by allowing you to run pytest tests using file line numbers.
+- [pytest-celery-utils](https://github.com/iloveitaly/pytest-celery-utils): Enables inspection of Celery task queues in Redis directly from your pytest environment.
+- [python-package-prompts](https://github.com/iloveitaly/python-package-prompts): Contains LLM instructions for maintaining Python standards across projects using pytest and other libraries.
+
 ## [MIT License](LICENSE.md)
 
 ---
