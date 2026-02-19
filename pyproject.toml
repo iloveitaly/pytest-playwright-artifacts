@@ -1,6 +1,6 @@
 [project]
 name = "pytest-playwright-artifacts"
-version = "0.1.0"
+version = "0.2.0"
 description = "Capture screenshots, HTML, and console logs on Playwright test failures"
 keywords = ["pytest-plugin", "playwright", "test-artifacts", "debugging"]
 readme = "README.md"
