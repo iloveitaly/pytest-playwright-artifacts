@@ -241,9 +241,10 @@ def test_write_failure_summary(tmp_path):
         "longrepr_text": "Full traceback here",
     }
 
-    write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
+    path = write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
 
     failure_file = tmp_path / "failure.txt"
+    assert path == failure_file
     assert failure_file.exists()
 
     content = failure_file.read_text()
@@ -268,9 +269,10 @@ def test_write_failure_summary_missing_fields(tmp_path):
         "longrepr_text": None,
     }
 
-    write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
+    path = write_failure_summary(tmp_path, mock_item, mock_rep, failure_info)
 
     failure_file = tmp_path / "failure.txt"
+    assert path == failure_file
     assert failure_file.exists()
 
     content = failure_file.read_text()
@@ -287,9 +289,10 @@ def test_write_console_logs(tmp_path):
         ]
     }
 
-    write_console_logs(tmp_path, mock_config, "test_nodeid")
+    path = write_console_logs(tmp_path, mock_config, "test_nodeid")
 
     logs_file = tmp_path / "console_logs.log"
+    assert path == logs_file
     assert logs_file.exists()
 
     content = logs_file.read_text()
@@ -302,9 +305,10 @@ def test_write_console_logs_no_logs(tmp_path):
     mock_config = Mock()
     mock_config._playwright_console_logs = {}
 
-    write_console_logs(tmp_path, mock_config, "test_nodeid")
+    path = write_console_logs(tmp_path, mock_config, "test_nodeid")
 
     logs_file = tmp_path / "console_logs.log"
+    assert path is None
     assert not logs_file.exists()
 
 

@@ -260,7 +260,7 @@ def write_failure_summary(
     item: pytest.Item,
     rep: pytest.TestReport,
     failure_info: FailureInfo,
-) -> None:
+) -> Path:
     # helper to write concise failure text summary
     from string import Template
 
@@ -291,22 +291,24 @@ $longrepr_text"""
     content = strip_ansi(content)
     failure_text_file = per_test_dir / "failure.txt"
     failure_text_file.write_text(content)
-    log.info("wrote test failure summary", file_path=failure_text_file)
+
+    return failure_text_file
 
 
 def write_console_logs(
     per_test_dir: Path, config: PlaywrightConfig, nodeid: str
-) -> None:
+) -> Path | None:
     # helper to write captured console logs to a file
     if nodeid not in config._playwright_console_logs:
-        return
+        return None
 
     logs = config._playwright_console_logs[nodeid]
     logs_content = "\n".join(format_console_msg(log) for log in logs)
     logs_file = per_test_dir / "console_logs.log"
     logs_file.write_text(logs_content)
-    log.info("wrote console logs", file_path=logs_file)
     del config._playwright_console_logs[nodeid]
+
+    return logs_file
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -338,13 +340,21 @@ def pytest_runtest_makereport(
 
     failure_file = per_test_dir / "failure.html"
     failure_file.write_text(page.content())
-    log.info("wrote rendered playwright page html", file_path=failure_file)
 
     screenshot_file = per_test_dir / "screenshot.png"
     page.screenshot(path=screenshot_file, full_page=True)
-    log.info("wrote playwright screenshot", file_path=screenshot_file)
 
     failure_info = extract_failure_info(rep, call, item)
-    write_failure_summary(per_test_dir, item, rep, failure_info)
+    summary_file = write_failure_summary(per_test_dir, item, rep, failure_info)
 
-    write_console_logs(per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid)
+    logs_file = write_console_logs(
+        per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid
+    )
+
+    log.info(
+        "wrote playwright artifacts",
+        html=failure_file,
+        screenshot=screenshot_file,
+        summary=summary_file,
+        logs=logs_file,
+    )
