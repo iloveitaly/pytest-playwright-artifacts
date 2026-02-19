@@ -5,12 +5,12 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
+from pytest_playwright_artifacts.assertions import assert_no_console_errors
 from pytest_playwright_artifacts.plugin import (
     _compile_ignore_patterns,
     _is_playwright_timeout,
     _resolve_timeout_retries,
     _should_ignore_console_log,
-    assert_no_console_errors,
     extract_failure_info,
     extract_structured_log,
     format_console_msg,
@@ -680,3 +680,45 @@ def test_assertion_ignore_regex():
 
     # Passes with regex
     assert_no_console_errors(mock_request, ignore=[r"Error \d+"])
+
+
+def test_assert_no_console_errors_custom_levels():
+    """Verify assert_no_console_errors respects custom error_levels."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {"type": "warning", "text": "warning message", "args": [], "location": {}, "ignored": False},
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Passes by default (only looks for 'error')
+    assert_no_console_errors(mock_request)
+
+    # Fails when 'warning' is added to error_levels
+    with pytest.raises(AssertionError, match="Console errors found"):
+        assert_no_console_errors(mock_request, error_levels=["warning"])
+
+
+def test_assert_no_console_errors_multiple_levels():
+    """Verify assert_no_console_errors handles multiple error_levels."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {"type": "error", "text": "error msg", "args": [], "location": {}, "ignored": False},
+            {"type": "warning", "text": "warning msg", "args": [], "location": {}, "ignored": False},
+        ]
+    }
+    mock_request.config = mock_config
+
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request, error_levels=["error", "warning"])
+    
+    assert "error msg" in str(excinfo.value)
+    assert "warning msg" in str(excinfo.value)

@@ -221,42 +221,6 @@ def playwright_console_logging(
         del pytestconfig._playwright_console_logs[request.node.nodeid]
 
 
-def assert_no_console_errors(
-    request: pytest.FixtureRequest,
-    ignore: list[str | re.Pattern[str]] | None = None,
-    skip_defaults: bool = False,
-) -> None:
-    # assertion helper to ensure no 'error' type console logs occurred
-    config = cast(PlaywrightConfig, request.config)
-    logs = config._playwright_console_logs.get(request.node.nodeid, [])
-
-    if skip_defaults:
-        candidate_logs = logs
-    else:
-        candidate_logs = [log for log in logs if not log["ignored"]]
-
-    errors = [log for log in candidate_logs if log["type"].lower() == "error"]
-
-    if ignore and errors:
-        # Filter out errors that match the provided ignore patterns
-        ignore_patterns = [
-            re.compile(p) if isinstance(p, str) else p for p in ignore
-        ]
-        
-        filtered_errors = []
-        for error in errors:
-            should_ignore = _should_ignore_console_log(error, ignore_patterns)
-            if not should_ignore:
-                filtered_errors.append(error)
-        errors = filtered_errors
-
-    if not errors:
-        return
-
-    error_msgs = "\n".join(format_console_msg(log) for log in errors)
-    assert not errors, f"Console errors found:\n{error_msgs}"
-
-
 def strip_ansi(text: str) -> str:
     # helper to remove ansi escape sequences from text
     return ANSI_ESCAPE_RE.sub("", text)
