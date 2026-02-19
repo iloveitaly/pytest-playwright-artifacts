@@ -103,6 +103,14 @@ playwright_console_ignore = [
 
 Patterns match against both the raw console text and the formatted log entry (which includes the type, text, arguments, and source location/URL). This allows you to filter logs based on their content OR their origin.
 
+For example, a console log like `console.log("User:", {id: 1, name: "Alice"})` will be formatted as:
+
+```text
+Type: log, Text: User: JSHandle@object, Args: User:, {'id': 1, 'name': 'Alice'}, Location: {'url': '...', ...}
+```
+
+You can write a regex to match against any part of this string, including the expanded object arguments (e.g., `.*'name': 'Alice'.*`).
+
 ### Change artifact output directory
 
 By default, artifacts are saved to `test-results/`. You can customize this:
