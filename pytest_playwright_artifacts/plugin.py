@@ -19,15 +19,17 @@ To disable:
 Configuration:
 - Use the pytest ini option `playwright_console_ignore` to filter out console messages.
   These values are regular expressions and are matched against both the raw console text and the
-  fully formatted line. Messages that match are not emitted to stdout and are not stored in the
-  in-memory buffer used for artifacts.
+  fully formatted log entry (which includes the type, text, arguments, and source location/URL).
+
+  This means you can filter logs based on their content OR their origin (e.g., ignoring all logs
+  from a specific third-party script).
 
   Example (pyproject.toml):
       [tool.pytest.ini_options]
       playwright_console_ignore = [
         "Invalid Sentry Dsn:.*",
         "Radar SDK: initialized.*",
-        "\\[Meta Pixel\\].*",
+        ".*third-party-tracker\\.js.*",  # Ignore by filename/URL
       ]
 
   Example (pytest.ini):
@@ -35,7 +37,7 @@ Configuration:
       playwright_console_ignore =
         Invalid Sentry Dsn:.*
         Radar SDK: initialized.*
-        \\[Meta Pixel\\].*
+        .*third-party-tracker\\.js.*
 
 Artifacts:
   On test failure, the following files are written to `<output-dir>/<sanitized-nodeid>/`:

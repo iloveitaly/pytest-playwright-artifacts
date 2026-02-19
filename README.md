@@ -96,11 +96,12 @@ Use regex patterns to ignore known noisy messages:
 playwright_console_ignore = [
   "Invalid Sentry Dsn:.*",
   "Radar SDK: initialized.*",
-  "\\[Meta Pixel\\].*",
+  # Ignore logs from specific files/URLs
+  ".*third-party-tracker\\.js.*",
 ]
 ```
 
-Patterns match against both the raw console text and the formatted log line.
+Patterns match against both the raw console text and the formatted log entry (which includes the type, text, arguments, and source location/URL). This allows you to filter logs based on their content OR their origin.
 
 ### Change artifact output directory
 
