@@ -1,8 +1,8 @@
 [project]
 name = "pytest-playwright-artifacts"
 version = "0.1.0"
-description = "Pytest plugin that captures HTML, screenshots, and console logs on Playwright test failures"
-keywords = ["pytest", "playwright", "testing", "artifacts"]
+description = "Capture screenshots, HTML, and console logs on Playwright test failures"
+keywords = ["pytest-plugin", "playwright", "test-artifacts", "debugging"]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

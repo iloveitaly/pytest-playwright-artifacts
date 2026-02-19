@@ -21,7 +21,7 @@ uv add --dev pytest-playwright-artifacts
 
 The plugin activates automatically once installed. No configuration needed.
 
-## Usage usage
+## Usage
 
 ### Artifacts on failure
 
@@ -98,16 +98,6 @@ playwright_console_ignore = [
   "Radar SDK: initialized.*",
   "\\[Meta Pixel\\].*",
 ]
-```
-
-**pytest.ini:**
-
-```ini
-[pytest]
-playwright_console_ignore =
-  Invalid Sentry Dsn:.*
-  Radar SDK: initialized.*
-  \\[Meta Pixel\\].*
 ```
 
 Patterns match against both the raw console text and the formatted log line.
