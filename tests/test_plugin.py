@@ -129,7 +129,13 @@ def test_assert_no_console_errors_raises():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "error", "text": "error message", "args": [], "location": {}, "ignored": False},
+            {
+                "type": "error",
+                "text": "error message",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
@@ -146,7 +152,13 @@ def test_assert_no_console_errors_passes():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "log", "text": "info message", "args": [], "location": {}, "ignored": False},
+            {
+                "type": "log",
+                "text": "info message",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
@@ -293,8 +305,20 @@ def test_write_console_logs(tmp_path):
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "log", "text": "message 1", "args": [], "location": {}, "ignored": False},
-            {"type": "error", "text": "message 2", "args": ["arg"], "location": {}, "ignored": False},
+            {
+                "type": "log",
+                "text": "message 1",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
+            {
+                "type": "error",
+                "text": "message 2",
+                "args": ["arg"],
+                "location": {},
+                "ignored": False,
+            },
         ]
     }
 
@@ -355,7 +379,9 @@ def test_is_playwright_timeout_with_timeout_error():
     mock_report = Mock()
     mock_report.passed = False
     mock_report.skipped = False
-    mock_report.longrepr = "playwright._impl._errors.TimeoutError: Timeout 30000ms exceeded."
+    mock_report.longrepr = (
+        "playwright._impl._errors.TimeoutError: Timeout 30000ms exceeded."
+    )
 
     assert _is_playwright_timeout(mock_report) is True
 
@@ -482,7 +508,10 @@ def test_pytest_runtest_protocol_passes_on_first_attempt():
 
     passing_report = _make_test_report(when="call", passed=True)
 
-    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[passing_report]) as mock_protocol:
+    with patch(
+        "pytest_playwright_artifacts.plugin.runtestprotocol",
+        return_value=[passing_report],
+    ) as mock_protocol:
         result = pytest_runtest_protocol(mock_item, nextitem=None)
 
     assert result is True
@@ -496,9 +525,14 @@ def test_pytest_runtest_protocol_non_timeout_failure_no_retry():
     mock_item.config.option.playwright_timeout_retries = None
     mock_item.config.getini.return_value = 2
 
-    failing_report = _make_test_report(when="call", passed=False, failed=True, longrepr="AssertionError: expected True")
+    failing_report = _make_test_report(
+        when="call", passed=False, failed=True, longrepr="AssertionError: expected True"
+    )
 
-    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[failing_report]) as mock_protocol:
+    with patch(
+        "pytest_playwright_artifacts.plugin.runtestprotocol",
+        return_value=[failing_report],
+    ) as mock_protocol:
         result = pytest_runtest_protocol(mock_item, nextitem=None)
 
     assert result is True
@@ -513,7 +547,9 @@ def test_pytest_runtest_protocol_retries_on_timeout():
     mock_item.config.getini.return_value = 2
 
     timeout_longrepr = "playwright._impl._errors.TimeoutError: Timeout exceeded"
-    timeout_report = _make_test_report(when="call", passed=False, failed=True, longrepr=timeout_longrepr)
+    timeout_report = _make_test_report(
+        when="call", passed=False, failed=True, longrepr=timeout_longrepr
+    )
     passing_report = _make_test_report(when="call", passed=True)
 
     call_count = 0
@@ -525,7 +561,9 @@ def test_pytest_runtest_protocol_retries_on_timeout():
             return [timeout_report]
         return [passing_report]
 
-    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", side_effect=side_effect):
+    with patch(
+        "pytest_playwright_artifacts.plugin.runtestprotocol", side_effect=side_effect
+    ):
         result = pytest_runtest_protocol(mock_item, nextitem=None)
 
     assert result is True
@@ -540,9 +578,14 @@ def test_pytest_runtest_protocol_exhausts_retries_on_repeated_timeout():
     mock_item.config.getini.return_value = 2
 
     timeout_longrepr = "playwright._impl._errors.TimeoutError: Timeout exceeded"
-    timeout_report = _make_test_report(when="call", passed=False, failed=True, longrepr=timeout_longrepr)
+    timeout_report = _make_test_report(
+        when="call", passed=False, failed=True, longrepr=timeout_longrepr
+    )
 
-    with patch("pytest_playwright_artifacts.plugin.runtestprotocol", return_value=[timeout_report]) as mock_protocol:
+    with patch(
+        "pytest_playwright_artifacts.plugin.runtestprotocol",
+        return_value=[timeout_report],
+    ) as mock_protocol:
         result = pytest_runtest_protocol(mock_item, nextitem=None)
 
     assert result is True
@@ -569,11 +612,12 @@ def test_pytest_report_teststatus_other_outcome():
 
     assert result is None
 
+
 def test_assertion_ignore_errors_extend():
     """Verify ignore extends default list (which is implicitly empty for this test)."""
     mock_request = Mock()
     mock_request.node.nodeid = "test_nodeid"
-    
+
     # Simulate captured logs where some are NOT ignored globally (so they appear here)
     mock_config = Mock()
     mock_config._playwright_console_logs = {
@@ -583,15 +627,15 @@ def test_assertion_ignore_errors_extend():
                 "text": "Regular Error",
                 "args": [],
                 "location": {},
-                "ignored": False
+                "ignored": False,
             },
             {
                 "type": "error",
                 "text": "Ignored Error",
                 "args": [],
                 "location": {},
-                "ignored": False
-            }
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
@@ -611,11 +655,12 @@ def test_assertion_ignore_errors_extend():
     # Ignore both: Passes
     assert_no_console_errors(mock_request, ignore=["Regular Error", "Ignored Error"])
 
+
 def test_assertion_skip_defaults():
     """Verify skip_defaults=True ignores global defaults (includes globally ignored errors)."""
     mock_request = Mock()
     mock_request.node.nodeid = "test_nodeid"
-    
+
     mock_config = Mock()
     # Simulate captured logs where one WAS globally ignored
     mock_config._playwright_console_logs = {
@@ -625,15 +670,15 @@ def test_assertion_skip_defaults():
                 "text": "Globally Ignored Error",
                 "args": [],
                 "location": {},
-                "ignored": True  # Was ignored by global config
+                "ignored": True,  # Was ignored by global config
             },
             {
                 "type": "error",
                 "text": "Regular Error",
                 "args": [],
                 "location": {},
-                "ignored": False
-            }
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
@@ -652,14 +697,17 @@ def test_assertion_skip_defaults():
 
     # skip_defaults=True with ignore list: Ignores specific error, includes globally ignored one unless ignored locally
     with pytest.raises(AssertionError) as excinfo:
-        assert_no_console_errors(mock_request, ignore=["Regular Error"], skip_defaults=True)
+        assert_no_console_errors(
+            mock_request, ignore=["Regular Error"], skip_defaults=True
+        )
     assert "Globally Ignored Error" in str(excinfo.value)
     assert "Regular Error" not in str(excinfo.value)
+
 
 def test_assertion_ignore_regex():
     mock_request = Mock()
     mock_request.node.nodeid = "test_nodeid"
-    
+
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
@@ -668,7 +716,7 @@ def test_assertion_ignore_regex():
                 "text": "Error 123",
                 "args": [],
                 "location": {},
-                "ignored": False
+                "ignored": False,
             }
         ]
     }
@@ -690,7 +738,13 @@ def test_assert_no_console_errors_custom_levels():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "warning", "text": "warning message", "args": [], "location": {}, "ignored": False},
+            {
+                "type": "warning",
+                "text": "warning message",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
@@ -711,14 +765,26 @@ def test_assert_no_console_errors_multiple_levels():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "error", "text": "error msg", "args": [], "location": {}, "ignored": False},
-            {"type": "warning", "text": "warning msg", "args": [], "location": {}, "ignored": False},
+            {
+                "type": "error",
+                "text": "error msg",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
+            {
+                "type": "warning",
+                "text": "warning msg",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            },
         ]
     }
     mock_request.config = mock_config
 
     with pytest.raises(AssertionError) as excinfo:
         assert_no_console_errors(mock_request, error_levels=["error", "warning"])
-    
+
     assert "error msg" in str(excinfo.value)
     assert "warning msg" in str(excinfo.value)

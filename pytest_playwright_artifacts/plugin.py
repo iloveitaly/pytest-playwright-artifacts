@@ -309,7 +309,7 @@ def write_console_logs(
     logs = config._playwright_console_logs[nodeid]
     # Filter out ignored logs before writing to file
     active_logs = [log for log in logs if not log["ignored"]]
-    
+
     logs_content = "\n".join(format_console_msg(log) for log in active_logs)
     logs_file = per_test_dir / "console_logs.log"
     logs_file.write_text(logs_content)
@@ -330,14 +330,14 @@ def _resolve_timeout_retries(item: pytest.Item) -> int:
     if marker is not None:
         return int(marker.args[0])
     return int(
-        get_pytest_option(
-            PLUGIN_NAMESPACE, item.config, "playwright_timeout_retries"
-        )
+        get_pytest_option(PLUGIN_NAMESPACE, item.config, "playwright_timeout_retries")
         or 0
     )
 
 
-def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> bool | None:
+def pytest_runtest_protocol(
+    item: pytest.Item, nextitem: pytest.Item | None
+) -> bool | None:
     if "page" not in cast(list[str], getattr(item, "fixturenames", [])):
         return None
 
@@ -349,9 +349,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
         is_last_attempt = attempt == retries
         reports = runtestprotocol(item, nextitem=nextitem, log=is_last_attempt)
 
-        failed_call = next(
-            (r for r in reports if r.when == "call" and r.failed), None
-        )
+        failed_call = next((r for r in reports if r.when == "call" and r.failed), None)
 
         if failed_call is None or not _is_playwright_timeout(failed_call):
             if not is_last_attempt:

@@ -30,10 +30,8 @@ def assert_no_console_errors(
 
     if ignore and errors:
         # Filter out errors that match the provided ignore patterns
-        ignore_patterns = [
-            re.compile(p) if isinstance(p, str) else p for p in ignore
-        ]
-        
+        ignore_patterns = [re.compile(p) if isinstance(p, str) else p for p in ignore]
+
         filtered_errors = []
         for error in errors:
             should_ignore = _should_ignore_console_log(error, ignore_patterns)
