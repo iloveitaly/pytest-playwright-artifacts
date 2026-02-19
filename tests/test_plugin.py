@@ -611,8 +611,8 @@ def test_assertion_ignore_errors_extend():
     # Ignore both: Passes
     assert_no_console_errors(mock_request, ignore=["Regular Error", "Ignored Error"])
 
-def test_assertion_ignore_defaults():
-    """Verify ignore_defaults=True ignores global defaults (includes globally ignored errors)."""
+def test_assertion_skip_defaults():
+    """Verify skip_defaults=True ignores global defaults (includes globally ignored errors)."""
     mock_request = Mock()
     mock_request.node.nodeid = "test_nodeid"
     
@@ -638,21 +638,21 @@ def test_assertion_ignore_defaults():
     }
     mock_request.config = mock_config
 
-    # Default (ignore_defaults=False): Globally ignored error is filtered out. Fails on Regular Error.
+    # Default (skip_defaults=False): Globally ignored error is filtered out. Fails on Regular Error.
     with pytest.raises(AssertionError) as excinfo:
         assert_no_console_errors(mock_request)
     assert "Globally Ignored Error" not in str(excinfo.value)
     assert "Regular Error" in str(excinfo.value)
 
-    # ignore_defaults=True: Global ignores are ignored (included). Fails on BOTH.
+    # skip_defaults=True: Global ignores are ignored (included). Fails on BOTH.
     with pytest.raises(AssertionError) as excinfo:
-        assert_no_console_errors(mock_request, ignore_defaults=True)
+        assert_no_console_errors(mock_request, skip_defaults=True)
     assert "Globally Ignored Error" in str(excinfo.value)
     assert "Regular Error" in str(excinfo.value)
 
-    # ignore_defaults=True with ignore list: Ignores specific error, includes globally ignored one unless ignored locally
+    # skip_defaults=True with ignore list: Ignores specific error, includes globally ignored one unless ignored locally
     with pytest.raises(AssertionError) as excinfo:
-        assert_no_console_errors(mock_request, ignore=["Regular Error"], ignore_defaults=True)
+        assert_no_console_errors(mock_request, ignore=["Regular Error"], skip_defaults=True)
     assert "Globally Ignored Error" in str(excinfo.value)
     assert "Regular Error" not in str(excinfo.value)
 

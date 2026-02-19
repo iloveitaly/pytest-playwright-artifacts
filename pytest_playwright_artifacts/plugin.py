@@ -224,13 +224,13 @@ def playwright_console_logging(
 def assert_no_console_errors(
     request: pytest.FixtureRequest,
     ignore: list[str | re.Pattern[str]] | None = None,
-    ignore_defaults: bool = False,
+    skip_defaults: bool = False,
 ) -> None:
     # assertion helper to ensure no 'error' type console logs occurred
     config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
 
-    if ignore_defaults:
+    if skip_defaults:
         candidate_logs = logs
     else:
         candidate_logs = [log for log in logs if not log["ignored"]]
