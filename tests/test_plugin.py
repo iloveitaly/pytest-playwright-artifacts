@@ -38,6 +38,7 @@ def test_format_console_msg():
         "text": "test message",
         "args": ["arg1", "arg2"],
         "location": {"url": "http://example.com", "lineNumber": 10},
+        "ignored": False,
     }
 
     formatted = format_console_msg(msg)
@@ -63,6 +64,7 @@ def test_extract_structured_log():
     assert result["text"] == "error message"
     assert result["args"] == ["test_value"]
     assert result["location"] == {"url": "http://example.com", "lineNumber": 5}
+    assert result["ignored"] is False
 
 
 def test_compile_ignore_patterns():
@@ -85,6 +87,7 @@ def test_should_ignore_console_log_with_patterns():
         "text": "ignored pattern message",
         "args": [],
         "location": {},
+        "ignored": False,
     }
 
     patterns = [re.compile("ignored.*pattern")]
@@ -98,6 +101,7 @@ def test_should_ignore_console_log_without_match():
         "text": "visible message",
         "args": [],
         "location": {},
+        "ignored": False,
     }
 
     patterns = [re.compile("ignored.*pattern")]
@@ -111,6 +115,7 @@ def test_should_ignore_console_log_no_patterns():
         "text": "any message",
         "args": [],
         "location": {},
+        "ignored": False,
     }
 
     assert _should_ignore_console_log(log, []) is False
@@ -124,7 +129,7 @@ def test_assert_no_console_errors_raises():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "error", "text": "error message", "args": [], "location": {}},
+            {"type": "error", "text": "error message", "args": [], "location": {}, "ignored": False},
         ]
     }
     mock_request.config = mock_config
@@ -141,7 +146,7 @@ def test_assert_no_console_errors_passes():
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "log", "text": "info message", "args": [], "location": {}},
+            {"type": "log", "text": "info message", "args": [], "location": {}, "ignored": False},
         ]
     }
     mock_request.config = mock_config
@@ -288,8 +293,8 @@ def test_write_console_logs(tmp_path):
     mock_config = Mock()
     mock_config._playwright_console_logs = {
         "test_nodeid": [
-            {"type": "log", "text": "message 1", "args": [], "location": {}},
-            {"type": "error", "text": "message 2", "args": ["arg"], "location": {}},
+            {"type": "log", "text": "message 1", "args": [], "location": {}, "ignored": False},
+            {"type": "error", "text": "message 2", "args": ["arg"], "location": {}, "ignored": False},
         ]
     }
 
@@ -563,3 +568,115 @@ def test_pytest_report_teststatus_other_outcome():
     result = pytest_report_teststatus(mock_report, mock_config)
 
     assert result is None
+
+def test_assertion_ignore_errors_extend():
+    """Verify ignore extends default list (which is implicitly empty for this test)."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+    
+    # Simulate captured logs where some are NOT ignored globally (so they appear here)
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "Regular Error",
+                "args": [],
+                "location": {},
+                "ignored": False
+            },
+            {
+                "type": "error",
+                "text": "Ignored Error",
+                "args": [],
+                "location": {},
+                "ignored": False
+            }
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Default: Fails on both
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request)
+    assert "Regular Error" in str(excinfo.value)
+    assert "Ignored Error" in str(excinfo.value)
+
+    # Ignore one: Fails on other
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request, ignore=["Ignored Error"])
+    assert "Regular Error" in str(excinfo.value)
+    assert "Ignored Error" not in str(excinfo.value)
+
+    # Ignore both: Passes
+    assert_no_console_errors(mock_request, ignore=["Regular Error", "Ignored Error"])
+
+def test_assertion_ignore_defaults():
+    """Verify ignore_defaults=True ignores global defaults (includes globally ignored errors)."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+    
+    mock_config = Mock()
+    # Simulate captured logs where one WAS globally ignored
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "Globally Ignored Error",
+                "args": [],
+                "location": {},
+                "ignored": True  # Was ignored by global config
+            },
+            {
+                "type": "error",
+                "text": "Regular Error",
+                "args": [],
+                "location": {},
+                "ignored": False
+            }
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Default (ignore_defaults=False): Globally ignored error is filtered out. Fails on Regular Error.
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request)
+    assert "Globally Ignored Error" not in str(excinfo.value)
+    assert "Regular Error" in str(excinfo.value)
+
+    # ignore_defaults=True: Global ignores are ignored (included). Fails on BOTH.
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request, ignore_defaults=True)
+    assert "Globally Ignored Error" in str(excinfo.value)
+    assert "Regular Error" in str(excinfo.value)
+
+    # ignore_defaults=True with ignore list: Ignores specific error, includes globally ignored one unless ignored locally
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request, ignore=["Regular Error"], ignore_defaults=True)
+    assert "Globally Ignored Error" in str(excinfo.value)
+    assert "Regular Error" not in str(excinfo.value)
+
+def test_assertion_ignore_regex():
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+    
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "Error 123",
+                "args": [],
+                "location": {},
+                "ignored": False
+            }
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Fails without regex
+    with pytest.raises(AssertionError):
+        assert_no_console_errors(mock_request)
+
+    # Passes with regex
+    assert_no_console_errors(mock_request, ignore=[r"Error \d+"])

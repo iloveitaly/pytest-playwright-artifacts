@@ -108,6 +108,7 @@ class StructuredConsoleLog(TypedDict):
     text: str
     args: list[object]
     location: object
+    ignored: bool
 
 
 class FailureInfo(TypedDict):
@@ -167,6 +168,7 @@ def extract_structured_log(msg: ConsoleMessage) -> StructuredConsoleLog:
         "text": msg.text,
         "args": [_safe_json_value(arg) for arg in msg.args],
         "location": msg.location,
+        "ignored": False,
     }
 
 
@@ -202,14 +204,15 @@ def playwright_console_logging(
 
     def log_console(msg: ConsoleMessage) -> None:
         structured_log = extract_structured_log(msg)
-        if _should_ignore_console_log(
+        is_ignored = _should_ignore_console_log(
             structured_log, pytestconfig._playwright_console_ignore_patterns
-        ):
-            return
-
+        )
+        structured_log["ignored"] = is_ignored
         logs.append(structured_log)
-        log_msg = format_console_msg(structured_log)
-        log.debug("captured browser console message", message=log_msg)
+
+        if not is_ignored:
+            log_msg = format_console_msg(structured_log)
+            log.debug("captured browser console message", message=log_msg)
 
     page.on("console", log_console)
     yield
@@ -218,11 +221,34 @@ def playwright_console_logging(
         del pytestconfig._playwright_console_logs[request.node.nodeid]
 
 
-def assert_no_console_errors(request: pytest.FixtureRequest) -> None:
+def assert_no_console_errors(
+    request: pytest.FixtureRequest,
+    ignore: list[str | re.Pattern[str]] | None = None,
+    ignore_defaults: bool = False,
+) -> None:
     # assertion helper to ensure no 'error' type console logs occurred
     config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
-    errors = [log for log in logs if log["type"].lower() == "error"]
+
+    if ignore_defaults:
+        candidate_logs = logs
+    else:
+        candidate_logs = [log for log in logs if not log["ignored"]]
+
+    errors = [log for log in candidate_logs if log["type"].lower() == "error"]
+
+    if ignore and errors:
+        # Filter out errors that match the provided ignore patterns
+        ignore_patterns = [
+            re.compile(p) if isinstance(p, str) else p for p in ignore
+        ]
+        
+        filtered_errors = []
+        for error in errors:
+            should_ignore = _should_ignore_console_log(error, ignore_patterns)
+            if not should_ignore:
+                filtered_errors.append(error)
+        errors = filtered_errors
 
     if not errors:
         return
@@ -317,7 +343,10 @@ def write_console_logs(
         return None
 
     logs = config._playwright_console_logs[nodeid]
-    logs_content = "\n".join(format_console_msg(log) for log in logs)
+    # Filter out ignored logs before writing to file
+    active_logs = [log for log in logs if not log["ignored"]]
+    
+    logs_content = "\n".join(format_console_msg(log) for log in active_logs)
     logs_file = per_test_dir / "console_logs.log"
     logs_file.write_text(logs_content)
     del config._playwright_console_logs[nodeid]
