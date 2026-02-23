@@ -43,6 +43,8 @@ jobs:
       - run: mise use python@${{ matrix.python-version }}
       - uses: iloveitaly/github-action-direnv-load-and-mask@master
       - run: uv sync
+      - name: Install Playwright browsers
+        run: uv run playwright install chromium --with-deps
       - name: Verify Plugin Registration
         run: uv run pytest --trace-config | grep playwright-artifacts
       - run: just test
