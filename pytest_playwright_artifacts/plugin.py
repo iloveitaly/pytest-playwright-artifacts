@@ -18,18 +18,22 @@ To disable:
 
 Configuration:
 - Use the pytest ini option `playwright_console_ignore` to filter out console messages.
-  These values are regular expressions and are matched against both the raw console text and the
-  fully formatted log entry (which includes the type, text, arguments, and source location/URL).
+  Entries can be plain regex strings OR structured dicts with `file` (required) and `message` (optional).
 
-  This means you can filter logs based on their content OR their origin (e.g., ignoring all logs
-  from a specific third-party script).
+  Plain string entries are matched against both the raw console text and the fully formatted log
+  entry (which includes the type, text, arguments, and source location/URL).
+
+  Structured dict entries match `file` against the source URL and `message` against the raw text.
+  If only `file` is given, all messages from matching URLs are ignored. If both are given, both
+  must match (AND logic). Dict format requires pyproject.toml (TOML inline tables).
 
   Example (pyproject.toml):
       [tool.pytest.ini_options]
       playwright_console_ignore = [
         "Invalid Sentry Dsn:.*",
         "Radar SDK: initialized.*",
-        ".*third-party-tracker\\.js.*",  # Ignore by filename/URL
+        { file = "third-party\\.js" },
+        { file = "analytics\\.js", message = "deprecated.*" },
       ]
 
   Example (pytest.ini):
@@ -37,7 +41,6 @@ Configuration:
       playwright_console_ignore =
         Invalid Sentry Dsn:.*
         Radar SDK: initialized.*
-        .*third-party-tracker\\.js.*
 
 Artifacts:
   On test failure, the following files are written to `<output-dir>/<sanitized-nodeid>/`:
@@ -54,7 +57,7 @@ Artifacts:
 
 import re
 from pathlib import Path
-from typing import Generator, Protocol, TypedDict, cast
+from typing import Callable, Generator, Protocol, TypedDict, cast
 
 import pytest
 import structlog
@@ -74,6 +77,9 @@ ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 PLUGIN_NAMESPACE: str = __package__ or "pytest_playwright_artifacts"
 
 
+IgnorePredicate = Callable[["StructuredConsoleLog"], bool]
+
+
 # Define configuration options
 set_pytest_option(
     PLUGIN_NAMESPACE,
@@ -90,7 +96,7 @@ set_pytest_option(
     default=[],
     help="List of regex (one per line) to ignore Playwright console messages.",
     available="ini",
-    type_hint=list[str],
+    type_hint=list,
 )
 
 set_pytest_option(
@@ -122,7 +128,7 @@ class FailureInfo(TypedDict):
 
 class PlaywrightConfig(Protocol):
     _playwright_console_logs: dict[str, list[StructuredConsoleLog]]
-    _playwright_console_ignore_patterns: list[re.Pattern[str]]
+    _playwright_console_ignore_patterns: list[IgnorePredicate]
 
     def getoption(self, name: str) -> object | None: ...
     def getini(self, name: str) -> object | None: ...
@@ -132,16 +138,58 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     register_pytest_options(PLUGIN_NAMESPACE, parser)
 
 
-def _compile_ignore_patterns(config: PlaywrightConfig) -> list[re.Pattern[str]]:
-    # collect and compile unique ignore regex from ini configuration
+def _make_regex_predicate(pattern: re.Pattern[str]) -> IgnorePredicate:
+    def predicate(log: StructuredConsoleLog) -> bool:
+        formatted = format_console_msg(log)
+        return bool(pattern.search(log["text"]) or pattern.search(formatted))
+
+    return predicate
+
+
+def _make_structured_predicate(
+    file_pat: re.Pattern[str], message_pat: re.Pattern[str] | None
+) -> IgnorePredicate:
+    def predicate(log: StructuredConsoleLog) -> bool:
+        location = log["location"]
+        url = location.get("url", "") if isinstance(location, dict) else ""
+        if not file_pat.search(url):
+            return False
+        return message_pat is None or bool(message_pat.search(log["text"]))
+
+    return predicate
+
+
+def _compile_entry(entry: str | re.Pattern[str] | dict[str, str]) -> IgnorePredicate:
+    if isinstance(entry, dict):
+        file_pat = re.compile(entry["file"])
+        message_pat = re.compile(entry["message"]) if entry.get("message") else None
+        return _make_structured_predicate(file_pat, message_pat)
+    pattern = re.compile(entry) if isinstance(entry, str) else entry
+    return _make_regex_predicate(pattern)
+
+
+def _compile_ignore_patterns(config: PlaywrightConfig) -> list[IgnorePredicate]:
+    # collect and compile unique ignore patterns (strings or structured dicts) from ini configuration
     ini_patterns = (
         get_pytest_option(
             PLUGIN_NAMESPACE, cast(pytest.Config, config), "playwright_console_ignore"
         )
         or []
     )
-    unique_patterns = list(dict.fromkeys(ini_patterns))
-    return [re.compile(p) for p in unique_patterns]
+
+    seen: set[str | tuple[str, str | None]] = set()
+    result: list[IgnorePredicate] = []
+
+    for entry in ini_patterns:
+        key: str | tuple[str, str | None] = (
+            entry if isinstance(entry, str) else (entry["file"], entry.get("message"))
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(_compile_entry(entry))
+
+    return result
 
 
 def pytest_configure(config: PlaywrightConfig) -> None:
@@ -175,20 +223,9 @@ def extract_structured_log(msg: ConsoleMessage) -> StructuredConsoleLog:
 
 
 def _should_ignore_console_log(
-    structured_log: StructuredConsoleLog, patterns: list[re.Pattern[str]]
+    structured_log: StructuredConsoleLog, predicates: list[IgnorePredicate]
 ) -> bool:
-    if not patterns:
-        return False
-
-    formatted = format_console_msg(structured_log)
-    candidates = [structured_log["text"], formatted]
-
-    for candidate in candidates:
-        for pattern in patterns:
-            if pattern.search(candidate):
-                return True
-
-    return False
+    return any(pred(structured_log) for pred in predicates)
 
 
 @pytest.fixture(autouse=True)

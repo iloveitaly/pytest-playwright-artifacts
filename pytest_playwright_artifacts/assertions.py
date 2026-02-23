@@ -5,6 +5,7 @@ import pytest
 
 from pytest_playwright_artifacts.plugin import (
     PlaywrightConfig,
+    _compile_entry,
     _should_ignore_console_log,
     format_console_msg,
 )
@@ -12,7 +13,7 @@ from pytest_playwright_artifacts.plugin import (
 
 def assert_no_console_errors(
     request: pytest.FixtureRequest,
-    ignore: list[str | re.Pattern[str]] | None = None,
+    ignore: list[str | re.Pattern[str] | dict[str, str]] | None = None,
     skip_defaults: bool = False,
     error_levels: list[str] | None = None,
 ) -> None:
@@ -29,15 +30,8 @@ def assert_no_console_errors(
     errors = [log for log in candidate_logs if log["type"].lower() in error_levels]
 
     if ignore and errors:
-        # Filter out errors that match the provided ignore patterns
-        ignore_patterns = [re.compile(p) if isinstance(p, str) else p for p in ignore]
-
-        filtered_errors = []
-        for error in errors:
-            should_ignore = _should_ignore_console_log(error, ignore_patterns)
-            if not should_ignore:
-                filtered_errors.append(error)
-        errors = filtered_errors
+        predicates = [_compile_entry(p) for p in ignore]
+        errors = [e for e in errors if not _should_ignore_console_log(e, predicates)]
 
     if not errors:
         return
