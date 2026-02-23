@@ -7,6 +7,7 @@ import pytest
 
 from pytest_playwright_artifacts.assertions import assert_no_console_errors
 from pytest_playwright_artifacts.plugin import (
+    _compile_entry,
     _compile_ignore_patterns,
     _is_playwright_timeout,
     _resolve_timeout_retries,
@@ -68,16 +69,16 @@ def test_extract_structured_log():
 
 
 def test_compile_ignore_patterns():
-    """Verify ignore patterns are compiled from config."""
+    """Verify ignore patterns are compiled from config into callable predicates."""
     mock_config = Mock()
     # Explicitly set CLI option to None so it falls back to INI
     mock_config.option.playwright_console_ignore = None
     mock_config.getini.return_value = ["pattern1.*", "pattern2.*", "pattern1.*"]
 
-    patterns = _compile_ignore_patterns(mock_config)
+    predicates = _compile_ignore_patterns(mock_config)
 
-    assert len(patterns) == 2
-    assert all(isinstance(p, re.Pattern) for p in patterns)
+    assert len(predicates) == 2
+    assert all(callable(p) for p in predicates)
 
 
 def test_should_ignore_console_log_with_patterns():
@@ -90,8 +91,8 @@ def test_should_ignore_console_log_with_patterns():
         "ignored": False,
     }
 
-    patterns = [re.compile("ignored.*pattern")]
-    assert _should_ignore_console_log(log, patterns) is True
+    predicates = [_compile_entry("ignored.*pattern")]
+    assert _should_ignore_console_log(log, predicates) is True
 
 
 def test_should_ignore_console_log_without_match():
@@ -104,8 +105,8 @@ def test_should_ignore_console_log_without_match():
         "ignored": False,
     }
 
-    patterns = [re.compile("ignored.*pattern")]
-    assert _should_ignore_console_log(log, patterns) is False
+    predicates = [_compile_entry("ignored.*pattern")]
+    assert _should_ignore_console_log(log, predicates) is False
 
 
 def test_should_ignore_console_log_no_patterns():
@@ -788,3 +789,177 @@ def test_assert_no_console_errors_multiple_levels():
 
     assert "error msg" in str(excinfo.value)
     assert "warning msg" in str(excinfo.value)
+
+
+def test_compile_ignore_patterns_with_dict_entries():
+    """Verify dict entries compile into callable predicates with correct behavior."""
+    mock_config = Mock()
+    mock_config.option.playwright_console_ignore = None
+    mock_config.getini.return_value = [
+        "plain.*regex",
+        {"file": "analytics\\.js"},
+        {"file": "tracking\\.js", "message": "deprecated.*"},
+        {"file": "analytics\\.js"},  # duplicate — should be deduplicated
+    ]
+
+    predicates = _compile_ignore_patterns(mock_config)
+
+    assert len(predicates) == 3
+    assert all(callable(p) for p in predicates)
+
+    analytics_log = {
+        "type": "log",
+        "text": "any message",
+        "args": [],
+        "location": {"url": "https://cdn.example.com/analytics.js"},
+        "ignored": False,
+    }
+    tracking_deprecated_log = {
+        "type": "log",
+        "text": "deprecated API",
+        "args": [],
+        "location": {"url": "https://cdn.example.com/tracking.js"},
+        "ignored": False,
+    }
+    tracking_other_log = {
+        "type": "log",
+        "text": "some other message",
+        "args": [],
+        "location": {"url": "https://cdn.example.com/tracking.js"},
+        "ignored": False,
+    }
+
+    # plain regex predicate matches text
+    assert predicates[0]({"type": "log", "text": "plain text regex match", "args": [], "location": {}, "ignored": False})
+    # file-only predicate ignores all messages from analytics.js
+    assert predicates[1](analytics_log)
+    # file+message predicate ignores only matching messages from tracking.js
+    assert predicates[2](tracking_deprecated_log)
+    assert not predicates[2](tracking_other_log)
+
+
+def test_should_ignore_console_log_structured_file_only():
+    """Verify file-only dict entry ignores all messages from matching URL."""
+    log_entry = {
+        "type": "log",
+        "text": "any message",
+        "args": [],
+        "location": {"url": "https://example.com/analytics.js", "lineNumber": 1},
+        "ignored": False,
+    }
+
+    predicate = _compile_entry({"file": r"analytics\.js"})
+    assert _should_ignore_console_log(log_entry, [predicate]) is True
+
+
+def test_should_ignore_console_log_structured_file_and_message_match():
+    """Verify file+message dict entry ignores when both match."""
+    log_entry = {
+        "type": "log",
+        "text": "deprecated API called",
+        "args": [],
+        "location": {"url": "https://example.com/tracking.js", "lineNumber": 5},
+        "ignored": False,
+    }
+
+    predicate = _compile_entry({"file": r"tracking\.js", "message": r"deprecated.*"})
+    assert _should_ignore_console_log(log_entry, [predicate]) is True
+
+
+def test_should_ignore_console_log_structured_file_and_message_no_match():
+    """Verify file+message dict entry does not ignore when message doesn't match."""
+    log_entry = {
+        "type": "log",
+        "text": "some other message",
+        "args": [],
+        "location": {"url": "https://example.com/tracking.js", "lineNumber": 5},
+        "ignored": False,
+    }
+
+    predicate = _compile_entry({"file": r"tracking\.js", "message": r"deprecated.*"})
+    assert _should_ignore_console_log(log_entry, [predicate]) is False
+
+
+def test_should_ignore_console_log_structured_file_no_match():
+    """Verify dict entry does not ignore when URL doesn't match."""
+    log_entry = {
+        "type": "log",
+        "text": "deprecated API called",
+        "args": [],
+        "location": {"url": "https://example.com/app.js", "lineNumber": 5},
+        "ignored": False,
+    }
+
+    predicate = _compile_entry({"file": r"tracking\.js", "message": r"deprecated.*"})
+    assert _should_ignore_console_log(log_entry, [predicate]) is False
+
+
+def test_assert_no_console_errors_with_dict_ignore_file_only():
+    """Verify assert_no_console_errors accepts dict ignore with file pattern."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "some error",
+                "args": [],
+                "location": {"url": "https://cdn.example.com/third-party.js"},
+                "ignored": False,
+            },
+            {
+                "type": "error",
+                "text": "real error",
+                "args": [],
+                "location": {"url": "https://myapp.com/app.js"},
+                "ignored": False,
+            },
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Ignoring third-party.js errors by file: only real error remains
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(mock_request, ignore=[{"file": r"third-party\.js"}])
+
+    assert "real error" in str(excinfo.value)
+    assert "some error" not in str(excinfo.value)
+
+
+def test_assert_no_console_errors_with_dict_ignore_file_and_message():
+    """Verify assert_no_console_errors with file+message dict ignore."""
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "deprecated feature used",
+                "args": [],
+                "location": {"url": "https://cdn.example.com/analytics.js"},
+                "ignored": False,
+            },
+            {
+                "type": "error",
+                "text": "network failure",
+                "args": [],
+                "location": {"url": "https://cdn.example.com/analytics.js"},
+                "ignored": False,
+            },
+        ]
+    }
+    mock_request.config = mock_config
+
+    # Only ignore "deprecated" messages from analytics.js; network failure should remain
+    with pytest.raises(AssertionError) as excinfo:
+        assert_no_console_errors(
+            mock_request,
+            ignore=[{"file": r"analytics\.js", "message": r"deprecated.*"}],
+        )
+
+    assert "network failure" in str(excinfo.value)
+    assert "deprecated feature used" not in str(excinfo.value)
