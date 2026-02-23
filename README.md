@@ -96,12 +96,25 @@ Use regex patterns to ignore known noisy messages:
 playwright_console_ignore = [
   "Invalid Sentry Dsn:.*",
   "Radar SDK: initialized.*",
-  # Ignore logs from specific files/URLs
-  ".*third-party-tracker\\.js.*",
+  # Ignore all messages from a specific file/URL
+  { file = "third-party-tracker\\.js" },
+  # Ignore only specific messages from a file
+  { file = "analytics\\.js", message = "deprecated.*" },
 ]
 ```
 
-Patterns match against both the raw console text and the formatted log entry (which includes the type, text, arguments, and source location/URL). This allows you to filter logs based on their content OR their origin.
+**pytest.ini** (plain strings only — TOML inline tables are not supported):
+
+```ini
+[pytest]
+playwright_console_ignore =
+  Invalid Sentry Dsn:.*
+  Radar SDK: initialized.*
+```
+
+#### Plain string patterns
+
+Plain string entries match against both the raw console text and the fully formatted log entry (which includes the type, text, arguments, and source location/URL). This allows you to filter by content OR origin.
 
 For example, a console log like `console.log("User:", {id: 1, name: "Alice"})` will be formatted as:
 
@@ -109,7 +122,45 @@ For example, a console log like `console.log("User:", {id: 1, name: "Alice"})` w
 Type: log, Text: User: JSHandle@object, Args: User:, {'id': 1, 'name': 'Alice'}, Location: {'url': '...', ...}
 ```
 
-You can write a regex to match against any part of this string, including the expanded object arguments (e.g., `.*'name': 'Alice'.*`).
+You can match against any part of this string, including expanded object arguments.
+
+#### Structured dict patterns (pyproject.toml only)
+
+Dict entries let you scope ignore rules precisely by URL and/or message.
+
+**Finding the source URL:** the easiest way is to look at `console_logs.log` in a failed test's artifact directory. Each line includes the full location, e.g.:
+
+```text
+Type: error, Text: deprecated API, Args: None, Location: {'url': 'https://cdn.example.com/analytics.js?v=2', 'lineNumber': 1, 'columnNumber': 0}
+```
+
+Copy the relevant part of the URL and use it as the `file` regex (remember to escape `.` as `\\.`).
+
+- `file` — required; regex matched against the console message's source URL
+- `message` — optional; regex matched against the raw console text
+
+If only `file` is given, **all** messages from matching URLs are ignored. If both `file` and `message` are given, **both** must match (AND logic).
+
+```toml
+playwright_console_ignore = [
+  # Ignore everything from a third-party bundle
+  { file = "vendor/sentry\\.js" },
+  # Ignore only deprecation warnings from analytics
+  { file = "analytics\\.js", message = "deprecated.*" },
+]
+```
+
+You can also pass dict patterns directly to `assert_no_console_errors`:
+
+```python
+assert_no_console_errors(
+    request,
+    ignore=[
+        {"file": r"third-party\.js"},
+        {"file": r"analytics\.js", "message": r"deprecated.*"},
+    ],
+)
+```
 
 ### Change artifact output directory
 
