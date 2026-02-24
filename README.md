@@ -37,6 +37,8 @@ When this test fails, you'll find artifacts in `test-results/<test-name>/`:
 - `failure.txt` - Failure summary with traceback
 - `console_logs.log` - All captured console messages
 
+Console messages are captured for every test but are only written to `console_logs.log` on failure. During a passing test they are emitted at `DEBUG` log level via structlog and are not visible in normal pytest output.
+
 ### Fail tests on console errors
 
 ```python
