@@ -7,6 +7,7 @@ import pytest
 
 from pytest_playwright_artifacts.assertions import assert_no_console_errors
 from pytest_playwright_artifacts.plugin import (
+    StructuredConsoleLog,
     _compile_entry,
     _compile_ignore_patterns,
     _is_playwright_timeout,
@@ -17,6 +18,7 @@ from pytest_playwright_artifacts.plugin import (
     format_console_msg,
     pytest_report_teststatus,
     pytest_runtest_protocol,
+    pytest_terminal_summary,
     strip_ansi,
     write_console_logs,
     write_failure_summary,
@@ -963,3 +965,64 @@ def test_assert_no_console_errors_with_dict_ignore_file_and_message():
 
     assert "network failure" in str(excinfo.value)
     assert "deprecated feature used" not in str(excinfo.value)
+
+
+def _make_log(text: str, ignored: bool = False) -> StructuredConsoleLog:
+    return {
+        "type": "log",
+        "text": text,
+        "args": [],
+        "location": {},
+        "ignored": ignored,
+    }
+
+
+def test_write_console_logs_keeps_for_single_test(tmp_path):
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [_make_log("msg1"), _make_log("ignored", ignored=True)]
+    }
+
+    write_console_logs(tmp_path, mock_config, "test_nodeid", single_test=True)
+
+    assert "test_nodeid" in mock_config._playwright_console_logs
+
+
+def test_write_console_logs_deletes_for_multi_test(tmp_path):
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [_make_log("msg1")]
+    }
+
+    write_console_logs(tmp_path, mock_config, "test_nodeid", single_test=False)
+
+    assert "test_nodeid" not in mock_config._playwright_console_logs
+
+
+def test_pytest_terminal_summary_outputs_all_logs():
+    mock_tr = Mock()
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_foo.py::test_bar": [
+            _make_log("hello"),
+            _make_log("filtered", ignored=True),
+        ]
+    }
+
+    pytest_terminal_summary(mock_tr, exitstatus=0, config=mock_config)
+
+    mock_tr.section.assert_called_once_with("Playwright console logs: test_foo.py::test_bar")
+    calls = [call.args[0] for call in mock_tr.write_line.call_args_list]
+    assert any("hello" in c for c in calls)
+    assert any("[ignored]" in c and "filtered" in c for c in calls)
+
+
+def test_pytest_terminal_summary_no_logs():
+    mock_tr = Mock()
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {}
+
+    pytest_terminal_summary(mock_tr, exitstatus=0, config=mock_config)
+
+    mock_tr.section.assert_not_called()
+    mock_tr.write_line.assert_not_called()

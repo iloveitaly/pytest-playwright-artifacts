@@ -116,6 +116,7 @@ class StructuredConsoleLog(TypedDict):
     text: str
     args: list[object]
     location: object
+    # logs matching ignore patterns are flagged rather than dropped, so callers can still inspect them
     ignored: bool
 
 
@@ -256,8 +257,11 @@ def playwright_console_logging(
     page.on("console", log_console)
     yield
 
-    if request.node.nodeid in pytestconfig._playwright_console_logs:
-        del pytestconfig._playwright_console_logs[request.node.nodeid]
+    nodeid = request.node.nodeid
+    if nodeid in pytestconfig._playwright_console_logs:
+        # for single-test runs, keep logs in the dict so pytest_terminal_summary can print them
+        if len(request.session.items) != 1:
+            del pytestconfig._playwright_console_logs[nodeid]
 
 
 def strip_ansi(text: str) -> str:
@@ -339,7 +343,7 @@ $longrepr_text"""
 
 
 def write_console_logs(
-    per_test_dir: Path, config: PlaywrightConfig, nodeid: str
+    per_test_dir: Path, config: PlaywrightConfig, nodeid: str, single_test: bool = False
 ) -> Path | None:
     # helper to write captured console logs to a file
     if nodeid not in config._playwright_console_logs:
@@ -352,7 +356,10 @@ def write_console_logs(
     logs_content = "\n".join(format_console_msg(log) for log in active_logs)
     logs_file = per_test_dir / "console_logs.log"
     logs_file.write_text(logs_content)
-    del config._playwright_console_logs[nodeid]
+
+    # same single-test preservation as the fixture teardown
+    if not single_test:
+        del config._playwright_console_logs[nodeid]
 
     return logs_file
 
@@ -386,11 +393,13 @@ def pytest_runtest_protocol(
 
     for attempt in range(retries + 1):
         is_last_attempt = attempt == retries
+        # log=False suppresses automatic pytest_runtest_logreport calls so we can emit "rerun" instead
         reports = runtestprotocol(item, nextitem=nextitem, log=is_last_attempt)
 
         failed_call = next((r for r in reports if r.when == "call" and r.failed), None)
 
         if failed_call is None or not _is_playwright_timeout(failed_call):
+            # runtestprotocol was called with log=False on non-final attempts, so report manually
             if not is_last_attempt:
                 for report in reports:
                     item.ihook.pytest_runtest_logreport(report=report)
@@ -460,7 +469,10 @@ def pytest_runtest_makereport(
     summary_file = write_failure_summary(per_test_dir, item, rep, failure_info)
 
     logs_file = write_console_logs(
-        per_test_dir, cast(PlaywrightConfig, item.config), item.nodeid
+        per_test_dir,
+        cast(PlaywrightConfig, item.config),
+        item.nodeid,
+        single_test=len(item.session.items) == 1,
     )
 
     log.info(
@@ -470,3 +482,19 @@ def pytest_runtest_makereport(
         summary=summary_file,
         logs=logs_file,
     )
+
+
+def pytest_terminal_summary(
+    terminalreporter: object, exitstatus: object, config: PlaywrightConfig
+) -> None:
+    del exitstatus  # required by pytest hook signature but unused
+    # only populated for single-test runs; entries are cleaned up per-test otherwise
+    if not config._playwright_console_logs:
+        return
+
+    for nodeid, logs in config._playwright_console_logs.items():
+        # terminalreporter is _pytest.terminal.TerminalReporter; use getattr to avoid private import
+        getattr(terminalreporter, "section")(f"Playwright console logs: {nodeid}")
+        for entry in logs:
+            prefix = "[ignored] " if entry["ignored"] else ""
+            getattr(terminalreporter, "write_line")(f"{prefix}{format_console_msg(entry)}")
