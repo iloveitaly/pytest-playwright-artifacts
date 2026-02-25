@@ -497,4 +497,6 @@ def pytest_terminal_summary(
         getattr(terminalreporter, "section")(f"Playwright console logs: {nodeid}")
         for entry in logs:
             prefix = "[ignored] " if entry["ignored"] else ""
-            getattr(terminalreporter, "write_line")(f"{prefix}{format_console_msg(entry)}")
+            getattr(terminalreporter, "write_line")(
+                f"{prefix}{format_console_msg(entry)}"
+            )

@@ -15,7 +15,9 @@ def _fire_console_error(page, message: str) -> None:
 
 def _serve_script(page, url: str, body: str) -> None:
     # route a fake script URL so console messages carry a real location.url
-    page.route(url, lambda route: route.fulfill(content_type="text/javascript", body=body))
+    page.route(
+        url, lambda route: route.fulfill(content_type="text/javascript", body=body)
+    )
     with page.expect_console_message():
         page.add_script_tag(url=url)
 
@@ -49,7 +51,9 @@ def test_plain_string_ignore_does_not_over_filter(page, request):
 
 def test_file_only_ignore_suppresses_all_errors_from_url(page, request):
     """Dict pattern with only `file` ignores every error from the matching URL."""
-    _serve_script(page, "https://cdn.example.com/analytics.js", "console.error('any error');")
+    _serve_script(
+        page, "https://cdn.example.com/analytics.js", "console.error('any error');"
+    )
 
     assert_no_console_errors(request, ignore=[{"file": r"analytics\.js"}])
 

@@ -1,6 +1,5 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
-import re
 from unittest.mock import Mock, patch, MagicMock
 
 import pytest
@@ -832,7 +831,15 @@ def test_compile_ignore_patterns_with_dict_entries():
     }
 
     # plain regex predicate matches text
-    assert predicates[0]({"type": "log", "text": "plain text regex match", "args": [], "location": {}, "ignored": False})
+    assert predicates[0](
+        {
+            "type": "log",
+            "text": "plain text regex match",
+            "args": [],
+            "location": {},
+            "ignored": False,
+        }
+    )
     # file-only predicate ignores all messages from analytics.js
     assert predicates[1](analytics_log)
     # file+message predicate ignores only matching messages from tracking.js
@@ -990,9 +997,7 @@ def test_write_console_logs_keeps_for_single_test(tmp_path):
 
 def test_write_console_logs_deletes_for_multi_test(tmp_path):
     mock_config = Mock()
-    mock_config._playwright_console_logs = {
-        "test_nodeid": [_make_log("msg1")]
-    }
+    mock_config._playwright_console_logs = {"test_nodeid": [_make_log("msg1")]}
 
     write_console_logs(tmp_path, mock_config, "test_nodeid", single_test=False)
 
@@ -1011,7 +1016,9 @@ def test_pytest_terminal_summary_outputs_all_logs():
 
     pytest_terminal_summary(mock_tr, exitstatus=0, config=mock_config)
 
-    mock_tr.section.assert_called_once_with("Playwright console logs: test_foo.py::test_bar")
+    mock_tr.section.assert_called_once_with(
+        "Playwright console logs: test_foo.py::test_bar"
+    )
     calls = [call.args[0] for call in mock_tr.write_line.call_args_list]
     assert any("hello" in c for c in calls)
     assert any("[ignored]" in c and "filtered" in c for c in calls)
