@@ -118,13 +118,13 @@ playwright_console_ignore =
 
 Plain string entries match against both the raw console text and the fully formatted log entry (which includes the type, text, arguments, and source location/URL). This allows you to filter by content OR origin.
 
-For example, a console log like `console.log("User:", {id: 1, name: "Alice"})` will be formatted as:
+For example, a console log like `console.log("User:", {id: 1, name: "Alice"})` will be formatted as a JSON string:
 
-```text
-Type: log, Text: User: JSHandle@object, Args: User:, {'id': 1, 'name': 'Alice'}, Location: {'url': '...', ...}
+```json
+{"type": "log", "text": "User: JSHandle@object", "args": ["User:", {"id": 1, "name": "Alice"}], "location": {"url": "...", "lineNumber": 1, "columnNumber": 0}}
 ```
 
-You can match against any part of this string, including expanded object arguments.
+You can match against any part of this JSON string, including expanded object arguments.
 
 #### Structured dict patterns (pyproject.toml only)
 
@@ -132,8 +132,8 @@ Dict entries let you scope ignore rules precisely by URL and/or message.
 
 **Finding the source URL:** the easiest way is to look at `console_logs.log` in a failed test's artifact directory. Each line includes the full location, e.g.:
 
-```text
-Type: error, Text: deprecated API, Args: None, Location: {'url': 'https://cdn.example.com/analytics.js?v=2', 'lineNumber': 1, 'columnNumber': 0}
+```json
+{"type": "error", "text": "deprecated API", "args": [], "location": {"url": "https://cdn.example.com/analytics.js?v=2", "lineNumber": 1, "columnNumber": 0}}
 ```
 
 Copy the relevant part of the URL and use it as the `file` regex (remember to escape `.` as `\\.`).
