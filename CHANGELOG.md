@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.2.0...v0.3.0) (2026-03-17)
+
+
+### Features
+
+* change console log output format to JSONL ([#23](https://github.com/iloveitaly/pytest-playwright-artifacts/issues/23)) ([48ede9b](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/48ede9bf711f676059721bd38325832544039d7a))
+* **plugin:** preserve console logs for single-test runs and display in terminal summary ([22cb0a1](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/22cb0a1990be1c69b7f88e47c8333b5379ff70d6))
+
+
+### Documentation
+
+* add example log line for console ignore patterns ([5cc5607](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/5cc56076e382df2e427bf2630781cd21f1d00fe7))
+* clarify console log capture behavior in README ([2df3b8c](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/2df3b8c0523705fb5e00ee6916138929766491c2))
+* clarify console log filtering by URL/location ([db5049e](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/db5049e783980dc519fdf6e4853e587d1aa5b276))
+* clarify console log ignore pattern syntax and scoping ([24c74e3](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/24c74e3c1f33a6e2a77e7749be384202bac9ff84))
+
 ## [0.2.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.1.0...v0.2.0) (2026-02-19)
 
 
