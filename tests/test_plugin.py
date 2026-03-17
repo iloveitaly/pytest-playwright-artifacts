@@ -35,6 +35,8 @@ def test_strip_ansi():
 
 def test_format_console_msg():
     """Verify console message formatting."""
+    import json
+
     msg = {
         "type": "log",
         "text": "test message",
@@ -44,9 +46,12 @@ def test_format_console_msg():
     }
 
     formatted = format_console_msg(msg)
-    assert "Type: log" in formatted
-    assert "Text: test message" in formatted
-    assert "Args: arg1, arg2" in formatted
+    parsed = json.loads(formatted)
+
+    assert parsed["type"] == "log"
+    assert parsed["text"] == "test message"
+    assert parsed["args"] == ["arg1", "arg2"]
+    assert parsed["location"] == {"url": "http://example.com", "lineNumber": 10}
 
 
 def test_extract_structured_log():

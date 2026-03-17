@@ -55,6 +55,7 @@ Artifacts:
   `--output` option.
 """
 
+import json
 import re
 from pathlib import Path
 from typing import Callable, Generator, Protocol, TypedDict, cast
@@ -203,9 +204,14 @@ def pytest_configure(config: PlaywrightConfig) -> None:
 
 
 def format_console_msg(msg: StructuredConsoleLog) -> str:
-    # helper to format a console message dict into a log string
-    args_str = ", ".join(str(arg) for arg in msg["args"]) if msg["args"] else "None"
-    return f"Type: {msg['type']}, Text: {msg['text']}, Args: {args_str}, Location: {msg['location']}"
+    # helper to format a console message dict into a JSON string
+    log_dict = {
+        "type": msg["type"],
+        "text": msg["text"],
+        "args": msg["args"],
+        "location": msg["location"],
+    }
+    return json.dumps(log_dict)
 
 
 def _safe_json_value(arg):
