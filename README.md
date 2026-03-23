@@ -5,11 +5,11 @@
 ![GitHub CI Status](https://github.com/iloveitaly/pytest-playwright-artifacts/actions/workflows/build_and_publish.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-When your Playwright tests fail, you need to see what went wrong. This pytest plugin does a couple things to make it easier to debug and build playwight tests:
+When your Playwright tests fail, you need to see what went wrong. This pytest plugin does a couple things to make it easier for you (and LLMs!) to debug and build Playwright tests:
 
 1. Automatically captures HTML, screenshots, console logs, and failure summaries the moment a test fails and dumps them into a per-test folder for easy debugging.
 2. Allows you to assert that no console errors were logged during a test.
-3. Automatically retry tests that fail due to playwright flakiness
+3. Automatically retry tests that fail due to Playwright flakiness
 
 No more guessing what the page looked like, what JavaScript errors occurred, or what the actual DOM content was.
 
