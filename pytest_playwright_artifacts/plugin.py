@@ -64,13 +64,12 @@ import pytest
 import structlog
 from _pytest.runner import runtestprotocol
 from playwright.sync_api import ConsoleMessage, Page
-
 from pytest_plugin_utils import (
+    get_artifact_dir,
     get_pytest_option,
     register_pytest_options,
     set_pytest_option,
 )
-from pytest_plugin_utils import get_artifact_dir, set_artifact_dir_option
 
 log = structlog.get_logger(logger_name=__package__)
 
@@ -108,8 +107,6 @@ set_pytest_option(
     available="ini",
     type_hint=int,
 )
-
-set_artifact_dir_option(PLUGIN_NAMESPACE, "playwright_artifacts_output")
 
 
 class StructuredConsoleLog(TypedDict):
@@ -463,7 +460,13 @@ def pytest_runtest_makereport(
         return
 
     page = cast(Page, page)
-    per_test_dir = get_artifact_dir(PLUGIN_NAMESPACE, item)
+    base_dir = cast(
+        Path,
+        get_pytest_option(
+            PLUGIN_NAMESPACE, item.config, "playwright_artifacts_output", type_hint=Path
+        ),
+    )
+    per_test_dir = get_artifact_dir(item, base_dir, create=True)
 
     failure_file = per_test_dir / "failure.html"
     failure_file.write_text(page.content())
