@@ -460,12 +460,10 @@ def pytest_runtest_makereport(
         return
 
     page = cast(Page, page)
-    base_dir = cast(
-        Path,
-        get_pytest_option(
-            PLUGIN_NAMESPACE, item.config, "playwright_artifacts_output", type_hint=Path
-        ),
+    base_dir = get_pytest_option(
+        PLUGIN_NAMESPACE, item.config, "playwright_artifacts_output", type_hint=Path
     )
+    assert base_dir
     per_test_dir = get_artifact_dir(item, base_dir, create=True)
 
     failure_file = per_test_dir / "failure.html"
