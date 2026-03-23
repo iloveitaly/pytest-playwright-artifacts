@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.3.0...v0.3.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* triggering a build for the fixed upstream utils refactor ([565d032](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/565d0323a0bd4cee87e6f0795e8ffe9af74cf7d2))
+
 ## [0.3.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.2.0...v0.3.0) (2026-03-17)
 
 
