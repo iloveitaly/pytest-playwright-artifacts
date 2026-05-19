@@ -100,6 +100,8 @@ playwright_console_ignore = [
   "Radar SDK: initialized.*",
   # Ignore all messages from a specific file/URL
   { file = "third-party-tracker\\.js" },
+  # Ignore all messages from a specific domain (and subdomains)
+  { domain = "example.com" },
   # Ignore only specific messages from a file
   { file = "analytics\\.js", message = "deprecated.*" },
 ]
@@ -112,6 +114,8 @@ playwright_console_ignore = [
 playwright_console_ignore =
   Invalid Sentry Dsn:.*
   Radar SDK: initialized.*
+  # Plain strings match against the full JSON log, allowing simple domain filtering
+  example.com
 ```
 
 #### Plain string patterns
@@ -138,15 +142,18 @@ Dict entries let you scope ignore rules precisely by URL and/or message.
 
 Copy the relevant part of the URL and use it as the `file` regex (remember to escape `.` as `\\.`).
 
-- `file` — required; regex matched against the console message's source URL
+- `domain` — regex-free way to ignore a hostname and its subdomains (e.g., `example.com` matches `http://example.com`, `https://api.example.com`, etc.). Must be a valid domain name.
+- `file` — regex matched against the console message's source URL
 - `message` — optional; regex matched against the raw console text
 
-If only `file` is given, **all** messages from matching URLs are ignored. If both `file` and `message` are given, **both** must match (AND logic).
+If only `domain` or `file` is given, **all** messages from matching URLs are ignored. If both are given with `message`, **both** must match (AND logic).
 
 ```toml
 playwright_console_ignore = [
   # Ignore everything from a third-party bundle
   { file = "vendor/sentry\\.js" },
+  # Ignore all errors from a specific domain
+  { domain = "google-analytics.com" },
   # Ignore only deprecation warnings from analytics
   { file = "analytics\\.js", message = "deprecated.*" },
 ]
@@ -158,7 +165,7 @@ You can also pass dict patterns directly to `assert_no_console_errors`:
 assert_no_console_errors(
     request,
     ignore=[
-        {"file": r"third-party\.js"},
+        {"domain": "example.com"},
         {"file": r"analytics\.js", "message": r"deprecated.*"},
     ],
 )
