@@ -17,7 +17,7 @@ urls = { "Repository" = "https://github.com/iloveitaly/pytest-playwright-artifac
 playwright_artifacts = "pytest_playwright_artifacts.plugin"
 
 [build-system]
-requires = ["uv_build>=0.10.0,<0.12"]
+requires = ["uv_build>=0.11.0,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -50,6 +50,3 @@ source = ["pytest_playwright_artifacts"]
 
 [tool.coverage.report]
 fail_under = 50
-
-[tool.ruff]
-extend-exclude = ["playground.py", "playground/"]
