@@ -126,3 +126,46 @@ def test_multiple_ignore_patterns(page, request):
             {"file": r"analytics\.js"},
         ],
     )
+
+
+def test_domain_ignore_matches_exact_domain(page, request):
+    """'domain' key ignores errors from the exact domain (including protocol)."""
+    _serve_script(
+        page, "https://example.com/app.js", "console.error('exact domain error')"
+    )
+    assert_no_console_errors(request, ignore=[{"domain": "example.com"}])
+
+
+def test_domain_ignore_matches_subdomains(page, request):
+    """'domain' key ignores errors from subdomains by default."""
+    _serve_script(
+        page, "https://api.example.com/app.js", "console.error('subdomain error')"
+    )
+    assert_no_console_errors(request, ignore=[{"domain": "example.com"}])
+
+
+def test_domain_ignore_does_not_match_similar_domains(page, request):
+    """'domain' key is strict about hostname boundaries."""
+    # Matches part of the string but not as a domain boundary
+    _serve_script(
+        page, "https://badexample.com/app.js", "console.error('similar domain error')"
+    )
+    with pytest.raises(AssertionError, match="Console errors found"):
+        assert_no_console_errors(request, ignore=[{"domain": "example.com"}])
+
+
+def test_domain_validation_rejects_invalid_inputs(page, request):
+    """'domain' key validation ensures clean domain strings."""
+    invalid_inputs = [
+        "https://example.com",
+        "example.com/path",
+        "*.example.com",
+        "example.com?",
+        "not_a_domain",
+    ]
+    # Fire an error so that the ignore patterns are actually compiled/validated
+    _fire_console_error(page, "trigger error")
+
+    for domain in invalid_inputs:
+        with pytest.raises(ValueError, match="Invalid domain name"):
+            assert_no_console_errors(request, ignore=[{"domain": domain}])

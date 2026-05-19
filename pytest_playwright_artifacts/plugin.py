@@ -87,7 +87,7 @@ set_pytest_option(
     default="test-results",
     help="Directory to store artifact files on test failure.",
     available="cli_option",
-    type_hint=str,
+    type_hint=Path,
 )
 
 set_pytest_option(
@@ -160,9 +160,52 @@ def _make_structured_predicate(
 
 def _compile_entry(entry: str | re.Pattern[str] | dict[str, str]) -> IgnorePredicate:
     if isinstance(entry, dict):
-        file_pat = re.compile(entry["file"])
         message_pat = re.compile(entry["message"]) if entry.get("message") else None
+
+        if "domain" in entry:
+            domain = entry["domain"]
+            # Validation: no protocol, no path, no wildcards, basic domain structure
+            domain_validator = re.compile(
+                r"""
+                ^                                   # Start of string
+                (?:                                 # One or more domain labels followed by a dot
+                    [a-z0-9]                        # Label starts with alphanumeric
+                    (?:[a-z0-9-]{0,61}[a-z0-9])?    # Optional alphanumeric/hyphen (up to 63 chars total)
+                    \.                              # Dot separator
+                )+
+                [a-z0-9]                            # TLD/Final label starts with alphanumeric
+                (?:[a-z0-9-]{0,61}[a-z0-9])?        # Optional alphanumeric/hyphen
+                $                                   # End of string
+                |                                   # OR
+                ^localhost$                         # Exact match for localhost
+                """,
+                re.VERBOSE | re.IGNORECASE,
+            )
+
+            is_valid = not any(c in domain for c in "/:?#*") and bool(
+                domain_validator.match(domain)
+            )
+
+            if not is_valid:
+                raise ValueError(
+                    f"Invalid domain name: {domain}. The 'domain' key expects a valid domain name (e.g., 'example.com'), not a URL or regex."
+                )
+
+            # Match http(s)://, optional subdomains, the domain itself, and then end of hostname or start of path/query/fragment
+            file_pat = re.compile(
+                rf"""
+                ^https?://                          # Match protocol
+                (?:[^/?#]+\.)?                      # Optional subdomains (anything but path/query delimiters)
+                {re.escape(domain)}                 # The target domain
+                (?:[/?#]|$)                         # End of hostname (start of path/query/fragment or end of string)
+                """,
+                re.VERBOSE,
+            )
+        else:
+            file_pat = re.compile(entry["file"])
+
         return _make_structured_predicate(file_pat, message_pat)
+
     pattern = re.compile(entry) if isinstance(entry, str) else entry
     return _make_regex_predicate(pattern)
 
@@ -181,7 +224,9 @@ def _compile_ignore_patterns(config: PlaywrightConfig) -> list[IgnorePredicate]:
 
     for entry in ini_patterns:
         key: str | tuple[str, str | None] = (
-            entry if isinstance(entry, str) else (entry["file"], entry.get("message"))
+            entry
+            if isinstance(entry, str)
+            else (entry.get("file") or entry.get("domain", ""), entry.get("message"))
         )
         if key in seen:
             continue
