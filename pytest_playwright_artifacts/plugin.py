@@ -59,11 +59,12 @@ import json
 import re
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pytest
 import structlog
 from _pytest.runner import runtestprotocol
+from _pytest.terminal import TerminalReporter
 from playwright.sync_api import ConsoleMessage, Page
 from pytest_plugin_utils import (
     get_artifact_dir,
@@ -132,6 +133,7 @@ class PlaywrightConfig(Protocol):
 
     def getoption(self, name: str) -> object | None: ...
     def getini(self, name: str) -> object | None: ...
+
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -468,8 +470,7 @@ def pytest_runtest_protocol(
         )
 
         for report in reports:
-            # pytest-rerunfailures pattern: "rerun" is not in pyright's Literal type for outcome
-            report.outcome = "rerun"
+            cast(Any, report).outcome = "rerun"
             item.ihook.pytest_runtest_logreport(report=report)
 
     return True
@@ -541,7 +542,7 @@ def pytest_runtest_makereport(
 
 
 def pytest_terminal_summary(
-    terminalreporter: object, exitstatus: object, config: PlaywrightConfig
+    terminalreporter: TerminalReporter, exitstatus: object, config: PlaywrightConfig
 ) -> None:
     del exitstatus  # required by pytest hook signature but unused
     # only populated for single-test runs; entries are cleaned up per-test otherwise
@@ -549,7 +550,6 @@ def pytest_terminal_summary(
         return
 
     for nodeid, logs in config._playwright_console_logs.items():
-        # terminalreporter is _pytest.terminal.TerminalReporter; use getattr to avoid private import
         terminalreporter.section(f"Playwright console logs: {nodeid}")
         for entry in logs:
             prefix = "[ignored] " if entry["ignored"] else ""
