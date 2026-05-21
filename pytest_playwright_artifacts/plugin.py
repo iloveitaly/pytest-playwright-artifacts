@@ -470,6 +470,7 @@ def pytest_runtest_protocol(
         )
 
         for report in reports:
+            # "rerun" is a runtime-only outcome from pytest-rerunfailures; pytest's Literal type has no entry for it
             cast(Any, report).outcome = "rerun"
             item.ihook.pytest_runtest_logreport(report=report)
 
