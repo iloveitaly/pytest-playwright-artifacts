@@ -1,6 +1,6 @@
 """Tests for the pytest-playwright-artifacts plugin."""
 
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 

@@ -57,8 +57,9 @@ Artifacts:
 
 import json
 import re
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Generator, Protocol, TypedDict, cast
+from typing import Protocol, TypedDict, cast
 
 import pytest
 import structlog
@@ -468,7 +469,7 @@ def pytest_runtest_protocol(
 
         for report in reports:
             # pytest-rerunfailures pattern: "rerun" is not in pyright's Literal type for outcome
-            setattr(report, "outcome", "rerun")
+            report.outcome = "rerun"
             item.ihook.pytest_runtest_logreport(report=report)
 
     return True
@@ -549,9 +550,7 @@ def pytest_terminal_summary(
 
     for nodeid, logs in config._playwright_console_logs.items():
         # terminalreporter is _pytest.terminal.TerminalReporter; use getattr to avoid private import
-        getattr(terminalreporter, "section")(f"Playwright console logs: {nodeid}")
+        terminalreporter.section(f"Playwright console logs: {nodeid}")
         for entry in logs:
             prefix = "[ignored] " if entry["ignored"] else ""
-            getattr(terminalreporter, "write_line")(
-                f"{prefix}{format_console_msg(entry)}"
-            )
+            terminalreporter.write_line(f"{prefix}{format_console_msg(entry)}")
