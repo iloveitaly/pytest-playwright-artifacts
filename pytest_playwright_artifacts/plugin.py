@@ -135,7 +135,6 @@ class PlaywrightConfig(Protocol):
     def getini(self, name: str) -> object | None: ...
 
 
-
 def pytest_addoption(parser: pytest.Parser) -> None:
     register_pytest_options(PLUGIN_NAMESPACE, parser)
 
