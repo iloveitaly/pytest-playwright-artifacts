@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.3.1...v0.4.0) (2026-05-21)
+
+
+### Features
+
+* **config:** add domain-based console error filtering ([d554c56](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/d554c56fd0bf24bab5e860181547b4f8d02fd2e9))
+
+
+### Bug Fixes
+
+* cast to Any for custom rerun outcome ([db66365](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/db66365ecd1917ee348f147a2a58958fbbee7352))
+* handle non-serializable console message arguments ([e675941](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/e6759416c7804eca9d2f0813b26ff8033ed30c21))
+
+
+### Documentation
+
+* add domain-based filtering to console ignore rules ([a7693e7](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/a7693e73675320849c1865034ba6f1dfce44df5e))
+
 ## [0.3.1](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.3.0...v0.3.1) (2026-03-23)
 
 
