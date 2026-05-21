@@ -154,6 +154,15 @@ def test_domain_ignore_does_not_match_similar_domains(page, request):
         assert_no_console_errors(request, ignore=[{"domain": "example.com"}])
 
 
+def test_console_error_with_js_error_object(page, request):
+    """console.error() with a JS Error arg causes INTERNALERROR via non-serializable arg.json_value()."""
+    with page.expect_console_message():
+        page.evaluate("console.error('failed:', new Error('boom'))")
+
+    with pytest.raises(AssertionError):
+        assert_no_console_errors(request)
+
+
 def test_domain_validation_rejects_invalid_inputs(page, request):
     """'domain' key validation ensures clean domain strings."""
     invalid_inputs = [

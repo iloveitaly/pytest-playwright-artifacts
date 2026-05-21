@@ -253,11 +253,14 @@ def format_console_msg(msg: StructuredConsoleLog) -> str:
         "args": msg["args"],
         "location": msg["location"],
     }
-    return json.dumps(log_dict)
+    return json.dumps(log_dict, default=str)
 
 
 def _safe_json_value(arg):
-    return arg.json_value()
+    try:
+        return arg.json_value()
+    except Exception:
+        return str(arg)
 
 
 def extract_structured_log(msg: ConsoleMessage) -> StructuredConsoleLog:
