@@ -307,6 +307,7 @@ def playwright_console_logging(
             log_msg = format_console_msg(structured_log)
             log.debug("captured browser console message", message=log_msg)
 
+    # listener survives page navigations since it's bound to the Page object, not the document
     page.on("console", log_console)
     yield
 
