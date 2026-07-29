@@ -4,7 +4,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from pytest_playwright_artifacts.assertions import assert_no_console_errors
+from pytest_playwright_artifacts.assertions import (
+    assert_no_console_errors,
+    clear_console_errors,
+)
 from pytest_playwright_artifacts.plugin import (
     StructuredConsoleLog,
     _compile_entry,
@@ -72,6 +75,7 @@ def test_extract_structured_log():
     assert result["args"] == ["test_value"]
     assert result["location"] == {"url": "http://example.com", "lineNumber": 5}
     assert result["ignored"] is False
+    assert result["assertion_cleared"] is False
 
 
 def test_compile_ignore_patterns():
@@ -183,6 +187,70 @@ def test_assert_no_console_errors_no_logs():
     mock_request.config = mock_config
 
     assert_no_console_errors(mock_request)
+
+
+def test_clear_console_errors_excludes_existing_errors_from_assertions():
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    existing_error = {
+        "type": "error",
+        "text": "existing error",
+        "args": [],
+        "location": {},
+        "ignored": False,
+    }
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {"test_nodeid": [existing_error]}
+    mock_request.config = mock_config
+
+    clear_console_errors(mock_request)
+
+    assert_no_console_errors(mock_request)
+    assert mock_config._playwright_console_logs["test_nodeid"] == [existing_error]
+
+    mock_config._playwright_console_logs["test_nodeid"].append(
+        {
+            "type": "error",
+            "text": "new error",
+            "args": [],
+            "location": {},
+            "ignored": False,
+        }
+    )
+
+    with pytest.raises(AssertionError) as exc_info:
+        assert_no_console_errors(mock_request)
+
+    assert "existing error" not in str(exc_info.value)
+    assert "new error" in str(exc_info.value)
+
+
+def test_clear_console_errors_retains_errors_in_log_output(tmp_path):
+    mock_request = Mock()
+    mock_request.node.nodeid = "test_nodeid"
+
+    mock_config = Mock()
+    mock_config._playwright_console_logs = {
+        "test_nodeid": [
+            {
+                "type": "error",
+                "text": "existing error",
+                "args": [],
+                "location": {},
+                "ignored": False,
+            }
+        ]
+    }
+    mock_request.config = mock_config
+
+    clear_console_errors(mock_request)
+    logs_file = write_console_logs(
+        tmp_path, mock_config, "test_nodeid", single_test=True
+    )
+
+    assert logs_file
+    assert "existing error" in logs_file.read_text()
 
 
 def test_extract_failure_info_with_reprcrash():

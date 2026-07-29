@@ -11,6 +11,14 @@ from pytest_playwright_artifacts.plugin import (
 )
 
 
+def clear_console_errors(request: pytest.FixtureRequest) -> None:
+    config = cast(PlaywrightConfig, request.config)
+    logs = config._playwright_console_logs.get(request.node.nodeid, [])
+
+    for log in logs:
+        log["assertion_cleared"] = True
+
+
 def assert_no_console_errors(
     request: pytest.FixtureRequest,
     ignore: list[str | re.Pattern[str] | dict[str, str]] | None = None,
@@ -21,6 +29,7 @@ def assert_no_console_errors(
     error_levels = [level.lower() for level in (error_levels or ["error"])]
     config = cast(PlaywrightConfig, request.config)
     logs = config._playwright_console_logs.get(request.node.nodeid, [])
+    logs = [log for log in logs if not log.get("assertion_cleared", False)]
 
     if skip_defaults:
         candidate_logs = logs

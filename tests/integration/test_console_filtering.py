@@ -2,7 +2,7 @@
 
 import pytest
 
-from pytest_playwright_artifacts import assert_no_console_errors
+from pytest_playwright_artifacts import assert_no_console_errors, clear_console_errors
 
 
 def _fire_console_error(page, message: str) -> None:
@@ -10,7 +10,7 @@ def _fire_console_error(page, message: str) -> None:
     # expect_console_message() to block until Playwright has processed the event
     # and our log_console handler has been called before we check the logs.
     with page.expect_console_message():
-        page.evaluate(f"console.error({repr(message)})")
+        page.evaluate(f"console.error({message!r})")
 
 
 def _serve_script(page, url: str, body: str) -> None:
@@ -28,6 +28,21 @@ def test_console_error_is_captured(page, request):
 
     with pytest.raises(AssertionError, match="Console errors found"):
         assert_no_console_errors(request)
+
+
+def test_clear_console_errors_excludes_only_existing_errors(page, request):
+    _fire_console_error(page, "existing error")
+
+    clear_console_errors(request)
+    assert_no_console_errors(request)
+
+    _fire_console_error(page, "new error")
+
+    with pytest.raises(AssertionError) as exc_info:
+        assert_no_console_errors(request)
+
+    assert "existing error" not in str(exc_info.value)
+    assert "new error" in str(exc_info.value)
 
 
 def test_plain_string_ignore_filters_by_message(page, request):

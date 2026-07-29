@@ -44,12 +44,30 @@ Console messages are captured for every test but are only written to `console_lo
 ```python
 from pytest_playwright_artifacts import assert_no_console_errors
 
+
 def test_no_console_errors(page, request):
     page.goto("https://example.com")
     assert_no_console_errors(request)
 ```
 
 This fails the test if any `console.error()` messages were logged during the test.
+Use `clear_console_errors()` to exclude messages captured before a specific point
+from subsequent assertions without removing them from console log output:
+
+```python
+from pytest_playwright_artifacts import (
+    assert_no_console_errors,
+    clear_console_errors,
+)
+
+
+def test_no_console_errors_after_login(page, request):
+    page.goto("https://example.com/login")
+    clear_console_errors(request)
+
+    page.get_by_role("button", name="Log in").click()
+    assert_no_console_errors(request)
+```
 
 ### Retry on Playwright timeouts
 

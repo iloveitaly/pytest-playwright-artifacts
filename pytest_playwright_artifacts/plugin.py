@@ -7,6 +7,7 @@ Features:
   of the failure, and console logs in a per-test artifact directory (mirroring
   pytest-playwright's structure for screenshots/traces).
 - Provides `assert_no_console_errors` helper to fail tests if any 'error' type console logs are detected.
+- Provides `clear_console_errors` helper to exclude existing messages from subsequent console assertions.
 
 The captured console logs are stored in `request.config._playwright_console_logs[nodeid]` as a list of dicts
 for access in custom hooks/reporters if needed.
@@ -65,7 +66,7 @@ import pytest
 import structlog
 from _pytest.runner import runtestprotocol
 from _pytest.terminal import TerminalReporter
-from playwright.sync_api import ConsoleMessage, Page
+from playwright.sync_api import ConsoleMessage, Error, JSHandle, Page
 from pytest_plugin_utils import (
     get_artifact_dir,
     get_pytest_option,
@@ -118,6 +119,7 @@ class StructuredConsoleLog(TypedDict):
     location: object
     # logs matching ignore patterns are flagged rather than dropped, so callers can still inspect them
     ignored: bool
+    assertion_cleared: bool
 
 
 class FailureInfo(TypedDict):
@@ -258,10 +260,10 @@ def format_console_msg(msg: StructuredConsoleLog) -> str:
     return json.dumps(log_dict, default=str)
 
 
-def _safe_json_value(arg):
+def _safe_json_value(arg: JSHandle) -> object:
     try:
         return arg.json_value()
-    except Exception:
+    except Error:
         return str(arg)
 
 
@@ -273,6 +275,7 @@ def extract_structured_log(msg: ConsoleMessage) -> StructuredConsoleLog:
         "args": [_safe_json_value(arg) for arg in msg.args],
         "location": msg.location,
         "ignored": False,
+        "assertion_cleared": False,
     }
 
 
@@ -312,10 +315,12 @@ def playwright_console_logging(
     yield
 
     nodeid = request.node.nodeid
-    if nodeid in pytestconfig._playwright_console_logs:
+    if (
+        nodeid in pytestconfig._playwright_console_logs
+        and len(request.session.items) != 1
+    ):
         # for single-test runs, keep logs in the dict so pytest_terminal_summary can print them
-        if len(request.session.items) != 1:
-            del pytestconfig._playwright_console_logs[nodeid]
+        del pytestconfig._playwright_console_logs[nodeid]
 
 
 def strip_ansi(text: str) -> str:
