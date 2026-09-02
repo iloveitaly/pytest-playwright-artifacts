@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.4.0...v0.5.0) (2026-09-02)
+
+
+### Features
+
+* add clear_console_errors helper to exclude prior console errors ([e4addbf](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/e4addbf7605bbae2d3e31c8cd5481f7611a79c2b))
+
+
+### Documentation
+
+* clarify listener lifecycle for browser console logging ([0a19f8a](https://github.com/iloveitaly/pytest-playwright-artifacts/commit/0a19f8aa67cde51ee887b8614c92f9417772f5fe))
+
 ## [0.4.0](https://github.com/iloveitaly/pytest-playwright-artifacts/compare/v0.3.1...v0.4.0) (2026-05-21)
 
 
