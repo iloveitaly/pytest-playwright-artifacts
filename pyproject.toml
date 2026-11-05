@@ -5,6 +5,13 @@ description = "Capture screenshots, HTML, and console logs on Playwright test fa
 keywords = ["pytest-plugin", "playwright", "test-artifacts", "debugging"]
 readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
  "playwright>=1.40.0",
  "pytest-plugin-utils>=0.2.0",
@@ -36,6 +43,7 @@ dev = [
     "coverage>=7.13.4",
     "pytest-cov>=7.0.0",
     "covdefaults>=2.3.0",
+    "beautiful-traceback>=1.0.2",
 ]
 
 [tool.pyright]
